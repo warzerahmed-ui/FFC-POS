@@ -196,11 +196,15 @@ export interface POSSale {
   id: string;
   saleNo: string;
   date: string;
+  time?: string;
   items: POSSaleItem[];
   subtotal: number;
   discount: number;
   total: number;
-  paymentType: 'CASH' | 'FIB_OR_CARD';
+  paidAmount?: number;
+  changeAmount?: number;
+  paymentType: 'CASH' | 'FIB_OR_CARD' | 'DEBT';
+  customerName?: string;
   cashierName: string;
 }
 
@@ -211,10 +215,13 @@ export interface BranchStockItem {
   productId: string;
   productName: string;
   code: string;
+  barcode: string;
   inStockKg: number;
   minAlertKg: number;
   retailPricePerKg: number;
   factoryCostPerKg: number;
+  category?: ProductCategory;
+  unit?: 'KG' | 'PIECE';
 }
 
 export interface BranchDeliveryItem {

@@ -74,9 +74,10 @@ interface AppContextType {
   // Dedicated Store Actions
   addBranchDelivery: (delivery: Omit<BranchDelivery, 'id'>) => void;
   addBranchExpense: (expense: Omit<BranchExpense, 'id'>) => void;
+  updateBranchStockItem: (productId: string, updates: Partial<BranchStockItem>) => void;
 
   // Barcode decoding utility
-  parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; weightKg: number; valid: boolean };
+  parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -245,18 +246,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const parseWeightBarcode = (barcodeStr: string) => {
     const clean = barcodeStr.trim();
-    if (clean.length === 13 && clean.startsWith('21')) {
-      const prodCode = clean.substring(4, 7);
+    if (!clean) return { product: undefined, branchItem: undefined, weightKg: 0, valid: false };
+
+    // Standard 13-digit scale barcode (starts with 20, 21, 22, 23, 24, 28)
+    if (clean.length === 13 && /^(20|21|22|23|24|28)/.test(clean)) {
+      const prodCode = clean.substring(2, 7); // e.g. 00101
       const weightGrams = parseInt(clean.substring(7, 12), 10);
-      const product = products.find(p => p.code === prodCode || clean.startsWith(p.barcodePrefix));
-      const weightKg = isNaN(weightGrams) ? 1 : weightGrams / 1000;
-      return { product, weightKg, valid: true };
+      
+      const product = products.find(p => 
+        clean.startsWith(p.barcodePrefix) || 
+        p.code === prodCode || 
+        prodCode.endsWith(p.code)
+      );
+      const branchItem = product ? branchStock.find(b => b.productId === product.id) : undefined;
+      const weightKg = isNaN(weightGrams) ? 1 : Math.round((weightGrams / 1000) * 1000) / 1000;
+      return { product, branchItem, weightKg, valid: !!(product || branchItem) };
     }
-    const directMatch = products.find(p => p.code === clean || p.id === clean);
-    if (directMatch) {
-      return { product: directMatch, weightKg: 1, valid: true };
+
+    // Direct barcode or code match
+    const product = products.find(p => 
+      p.code === clean || 
+      p.id === clean || 
+      p.barcodePrefix === clean ||
+      clean.startsWith(p.barcodePrefix)
+    );
+    const branchItem = product 
+      ? branchStock.find(b => b.productId === product.id) 
+      : branchStock.find(b => b.barcode === clean || b.code === clean || b.productId === clean);
+
+    const resolvedProduct = product || (branchItem ? products.find(p => p.id === branchItem.productId) : undefined);
+
+    if (resolvedProduct || branchItem) {
+      return { product: resolvedProduct, branchItem, weightKg: 1, valid: true };
     }
-    return { product: undefined, weightKg: 0, valid: false };
+
+    return { product: undefined, branchItem: undefined, weightKg: 0, valid: false };
   };
 
   const addIntake = (newIntake: Omit<LiveIntake, 'id' | 'processedLiveWeightKg' | 'remainingLiveWeightKg'>) => {
@@ -509,6 +533,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBranchExpenses(prev => [{ ...expData, id }, ...prev]);
   };
 
+  const updateBranchStockItem = (productId: string, updates: Partial<BranchStockItem>) => {
+    setBranchStock(prev => prev.map(item => item.productId === productId ? { ...item, ...updates } : item));
+  };
+
   const updateProductPrice = (id: string, newPrice: number, newCost: number) => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, pricePerKg: newPrice, costPerKg: newCost } : p));
   };
@@ -548,6 +576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addPOSSale,
         addBranchDelivery,
         addBranchExpense,
+        updateBranchStockItem,
         updateProductPrice,
         parseWeightBarcode,
       }}
