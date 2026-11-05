@@ -130,7 +130,7 @@ export const POSView: React.FC = () => {
   } = useApp();
 
   // Active Main Sub-Tab
-  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'INBOUND' | 'INVENTORY' | 'LABELS' | 'HISTORY' | 'REGISTER_REPORT'>('REGISTER');
+  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'INBOUND' | 'INVENTORY' | 'HISTORY' | 'REGISTER_REPORT'>('REGISTER');
 
   // ==========================================
   // POS REGISTER STATE
@@ -407,31 +407,6 @@ export const POSView: React.FC = () => {
   };
 
   // ==========================================
-  // BARCODE & LABEL GENERATOR STATE
-  // ==========================================
-  const [labelProduct, setLabelProduct] = useState<ProductItem>(products[0]);
-  const [labelWeight, setLabelWeight] = useState<string>('1.500');
-  const [labelCopies, setLabelCopies] = useState<number>(1);
-
-  // Generate 13-digit EAN-13 Scale Barcode: Prefix '21' + 3 digits code + 2 zeroes + 5 digits grams + 1 checksum
-  const generateScaleBarcode = (productCode: string, weightKg: number): string => {
-    const grams = Math.round(weightKg * 1000);
-    const codePart = productCode.padStart(3, '0');
-    const gramsPart = String(grams).padStart(5, '0');
-    const base12 = `21${codePart}00${gramsPart}`.slice(0, 12);
-    // Simple checksum digit
-    let sum = 0;
-    for (let i = 0; i < 12; i++) {
-      sum += parseInt(base12[i], 10) * (i % 2 === 0 ? 1 : 3);
-    }
-    const checkDigit = (10 - (sum % 10)) % 10;
-    return `${base12}${checkDigit}`;
-  };
-
-  const currentLabelBarcode = generateScaleBarcode(labelProduct.code, parseFloat(labelWeight) || 1.0);
-  const currentLabelPrice = Math.round((parseFloat(labelWeight) || 1.0) * labelProduct.pricePerKg);
-
-  // ==========================================
   // EXPENSES STATE
   // ==========================================
   const [expTitle, setExpTitle] = useState('');
@@ -501,7 +476,7 @@ export const POSView: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              فرۆشتنی ڕاستەوخۆ بە بارکۆد، داخلکردنی کۆگای شۆروم، چاپکەری لەیبڵ و ژمێرەری سەندوق
+              فرۆشتنی ڕاستەوخۆ بە بارکۆد، داخلکردنی کۆگای شۆروم، و ژمێرەری سەندوق
             </p>
           </div>
         </div>
@@ -542,18 +517,6 @@ export const POSView: React.FC = () => {
           >
             <Boxes className="w-4 h-4" />
             کۆگای فرۆشگا ({branchStock.length})
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('LABELS')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'LABELS'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Tag className="w-4 h-4" />
-            چاپکەری لەیبڵ و بارکۆد
           </button>
 
           <button
@@ -1337,124 +1300,7 @@ export const POSView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: BARCODE & LABEL GENERATOR (چاپکەری لەیبڵ و ستیکەری بارکۆد) */}
-      {/* ========================================================================= */}
-      {activeSubTab === 'LABELS' && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-          {/* Label Configurator */}
-          <div className="md:col-span-5 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center">
-                <Tag className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-base text-slate-900 dark:text-white">دروستکەری لەیبڵی تەرازوو</h3>
-                <p className="text-xs text-slate-500">چاپکردنی ستیکەری بارکۆدی فرێش بۆ پاکەتەکان</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="font-bold text-xs text-slate-600 dark:text-slate-300 block mb-1">هەڵبژاردنی بەرهەم:</label>
-              <select
-                value={labelProduct.id}
-                onChange={e => {
-                  const p = products.find(prod => prod.id === e.target.value);
-                  if (p) setLabelProduct(p);
-                }}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs"
-              >
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nameKu} (کۆد: {p.code}) - {p.pricePerKg.toLocaleString()} د.ع/کگم
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">کێشی پاکەت (کگم):</label>
-                <input
-                  type="number"
-                  step="0.05"
-                  value={labelWeight}
-                  onChange={e => setLabelWeight(e.target.value)}
-                  placeholder="1.500"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-base text-amber-600"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">ژمارەی لەیبڵ:</label>
-                <input
-                  type="number"
-                  value={labelCopies}
-                  onChange={e => setLabelCopies(parseInt(e.target.value, 10) || 1)}
-                  min={1}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs space-y-1">
-              <div className="flex justify-between text-slate-500">
-                <span>نرخی فرۆشتن:</span>
-                <span className="font-mono font-bold">{labelProduct.pricePerKg.toLocaleString()} د.ع</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>کۆی بەهای پاکەت:</span>
-                <span className="font-mono font-bold text-emerald-600">{currentLabelPrice.toLocaleString()} د.ع</span>
-              </div>
-              <div className="flex justify-between text-slate-500 font-mono text-[11px]">
-                <span>بارکۆدی تەرازوو:</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{currentLabelBarcode}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => window.print()}
-              className="w-full py-3.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black text-sm shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 active:scale-98 transition-all"
-            >
-              <Printer className="w-4 h-4" />
-              <span>چاپکردنی لەیبڵی بارکۆد ({labelCopies} دانە)</span>
-            </button>
-          </div>
-
-          {/* Printable Label Preview (Thermal Label 50x30mm Style) */}
-          <div className="md:col-span-7 flex flex-col items-center justify-center p-6 bg-slate-100 dark:bg-slate-800/40 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700">
-            <span className="text-xs font-bold text-slate-400 mb-3">پێشبینینی لەیبڵی تێرمال (Sticker 50x30mm)</span>
-
-            <div className="w-[280px] bg-white text-slate-900 p-4 rounded-xl shadow-2xl border border-slate-300 text-center font-sans space-y-2 select-none">
-              <div className="border-b border-slate-300 pb-1">
-                <h4 className="font-black text-xs tracking-wider text-slate-800 uppercase">FFC FRESH CHICKEN</h4>
-                <p className="font-black text-sm text-slate-900 mt-0.5">{labelProduct.nameKu}</p>
-              </div>
-
-              <div className="grid grid-cols-2 text-right text-[11px] font-bold py-1 border-b border-slate-200">
-                <div>
-                  <span className="text-slate-500 text-[10px]">کێش:</span>
-                  <div className="font-mono font-black text-sm">{parseFloat(labelWeight || '1').toFixed(3)} کگم</div>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10px]">کۆی پارە:</span>
-                  <div className="font-mono font-black text-sm text-emerald-700">{currentLabelPrice.toLocaleString()} د.ع</div>
-                </div>
-              </div>
-
-              <div className="py-1">
-                <BarcodeSVG code={currentLabelBarcode} width={240} height={46} />
-              </div>
-
-              <div className="flex items-center justify-between text-[9px] text-slate-500 border-t border-slate-200 pt-1">
-                <span>بەروار: {new Date().toISOString().split('T')[0]}</span>
-                <span>بەسەرچوون: ٣ ڕۆژ فرێش</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 5: POS SALES HISTORY & REPRINT (مێژووی وەسڵەکان و چاپی گەرم) */}
+      {/* TAB 4: POS SALES HISTORY & REPRINT (مێژووی وەسڵەکان و چاپی گەرم) */}
       {/* ========================================================================= */}
       {activeSubTab === 'HISTORY' && (
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
