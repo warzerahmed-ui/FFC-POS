@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fresh-chicken-erp",
+  "compatibility_date": "2026-11-01",
+  "pages_build_output_dir": "dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fresh-chicken-db",
+      "database_id": "YOUR_D1_DATABASE_ID_HERE"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "RECEIPTS_BUCKET",
+      "bucket_name": "fresh-chicken-receipts"
+    }
+  ]
+}
