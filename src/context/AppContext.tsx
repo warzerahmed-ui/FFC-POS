@@ -472,6 +472,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return c;
       }));
     }
+
+    // If 3-day return originates from Showroom (BRANCH), deduct expired weight from branchStock
+    if (ret.sourceType === 'BRANCH') {
+      setBranchStock(prev =>
+        prev.map(bs => {
+          const retKg = ret.items
+            .filter(i => i.productId === bs.productId)
+            .reduce((s, i) => s + i.weightKg, 0);
+          return retKg > 0
+            ? { ...bs, inStockKg: Math.max(0, Number((bs.inStockKg - retKg).toFixed(2))) }
+            : bs;
+        })
+      );
+    }
   };
 
   const convertReturnOrder = (
@@ -594,10 +608,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBranchStock(prev => prev.map(bs => {
       const item = sale.items.find(i => i.productId === bs.productId);
       if (item) {
-        return { ...bs, inStockKg: Math.max(0, bs.inStockKg - item.weightKg) };
+        return { ...bs, inStockKg: Math.max(0, Number((bs.inStockKg - item.weightKg).toFixed(2))) };
       }
       return bs;
     }));
+
+    // If Showroom POS sale is on DEBT, add to the customer's debt ledger
+    if (sale.paymentType === 'DEBT' && sale.total > 0) {
+      const targetName = (sale.customerName || '').trim();
+      setCustomers(prev => {
+        const matchIndex = prev.findIndex(
+          c =>
+            (sale.customerId && c.id === sale.customerId) ||
+            (targetName &&
+              (c.name.toLowerCase().includes(targetName.toLowerCase()) ||
+                targetName.toLowerCase().includes(c.name.toLowerCase())))
+        );
+        if (matchIndex >= 0) {
+          return prev.map((c, i) =>
+            i === matchIndex ? { ...c, currentDebt: c.currentDebt + sale.total } : c
+          );
+        }
+        if (targetName) {
+          const newCust: Customer = {
+            id: `cust-${Date.now()}`,
+            name: targetName,
+            phone: '',
+            type: 'SUPERMARKET',
+            address: 'کڕیاری شۆرۆم',
+            currentDebt: sale.total,
+            creditLimit: 3000000,
+            createdAt: sale.date.slice(0, 10),
+          };
+          return [...prev, newCust];
+        }
+        return prev;
+      });
+    }
 
     return sale;
   };

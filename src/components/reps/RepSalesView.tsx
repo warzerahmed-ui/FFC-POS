@@ -55,7 +55,7 @@ export const RepSalesView: React.FC = () => {
   );
   const [customCustomer, setCustomCustomer] = useState('');
   const [phone, setPhone] = useState('0770 234 5678');
-  const [paymentType, setPaymentType] = useState<'CREDIT' | 'CASH'>('CREDIT');
+  const [paymentType, setPaymentType] = useState<'CREDIT' | 'CASH' | 'ELECTRONIC'>('CREDIT');
   const [notes, setNotes] = useState('فرۆشی مەندوب بە وەسڵی دەستی');
 
   // Sale Line Items
@@ -150,6 +150,11 @@ export const RepSalesView: React.FC = () => {
     );
 
   // KPIs
+  const repReturnsList = useMemo(
+    () => returns.filter(r => r.sourceType === 'REP'),
+    [returns]
+  );
+
   const totalRepSalesKg = repSalesList.reduce((sum, d) => sum + d.totalWeightKg, 0);
   const totalRepSalesIQD = repSalesList.reduce((sum, d) => sum + d.totalAmount, 0);
   const creditSalesIQD = repSalesList
@@ -158,10 +163,13 @@ export const RepSalesView: React.FC = () => {
   const cashSalesIQD = repSalesList
     .filter(d => d.paymentType === 'CASH')
     .reduce((sum, d) => sum + d.totalAmount, 0);
+  const electronicSalesIQD = repSalesList
+    .filter(d => d.paymentType === 'ELECTRONIC')
+    .reduce((sum, d) => sum + d.totalAmount, 0);
 
-  const totalAllReturnsKg = returns.reduce((sum, r) => sum + r.totalWeightKg, 0);
-  const totalAllFactoryLoss = returns.reduce((sum, r) => sum + r.totalLossAmount, 0);
-  const totalAllDeductedFromCustomers = returns.reduce(
+  const totalAllReturnsKg = repReturnsList.reduce((sum, r) => sum + r.totalWeightKg, 0);
+  const totalAllFactoryLoss = repReturnsList.reduce((sum, r) => sum + r.totalLossAmount, 0);
+  const totalAllDeductedFromCustomers = repReturnsList.reduce(
     (sum, r) => sum + (r.totalCustomerDeduction ?? r.totalLossAmount),
     0
   );
@@ -181,8 +189,8 @@ export const RepSalesView: React.FC = () => {
 
   const filteredReturns = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return returns;
-    return returns.filter(
+    if (!q) return repReturnsList;
+    return repReturnsList.filter(
       r =>
         r.manualReceiptNo.toLowerCase().includes(q) ||
         (r.salesReceiptNo && r.salesReceiptNo.toLowerCase().includes(q)) ||
@@ -190,7 +198,7 @@ export const RepSalesView: React.FC = () => {
         (r.sourceName && r.sourceName.toLowerCase().includes(q)) ||
         (r.repName && r.repName.toLowerCase().includes(q))
     );
-  }, [returns, searchQuery]);
+  }, [repReturnsList, searchQuery]);
 
   const filteredReceiptOptions = useMemo(() => {
     const q = searchReceiptQuery.trim().toLowerCase();
@@ -514,7 +522,7 @@ export const RepSalesView: React.FC = () => {
 
         <div className="p-5 rounded-3xl bg-white border border-black/[0.06] shadow-sm">
           <div className="flex items-center justify-between text-[#86868B] text-xs font-semibold mb-2">
-            <span>فرۆشی قەرز و کاش</span>
+            <span>قەرز، کاش و ئەلکترۆنی</span>
             <div className="w-8 h-8 rounded-2xl bg-[#FF9500]/10 text-[#FF9500] flex items-center justify-center">
               <CreditCard className="w-4 h-4" />
             </div>
@@ -523,8 +531,11 @@ export const RepSalesView: React.FC = () => {
             {creditSalesIQD.toLocaleString()}{' '}
             <span className="text-xs font-medium text-[#86868B]">د.ع قەرز</span>
           </div>
-          <div className="mt-2 text-[11px] text-[#248A3D] font-semibold tabular-nums">
-            کاش (نەقد): {cashSalesIQD.toLocaleString()} د.ع
+          <div className="mt-2 text-[11px] font-semibold tabular-nums flex flex-wrap gap-2">
+            <span className="text-[#248A3D]">کاش: {cashSalesIQD.toLocaleString()}</span>
+            <span className="text-[#0071E3]">
+              ئەلکترۆنی: {electronicSalesIQD.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -711,6 +722,11 @@ export const RepSalesView: React.FC = () => {
                             <span className="text-[10px] bg-[#34C759]/10 text-[#248A3D] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
                               <Banknote className="w-3 h-3" />
                               کاش
+                            </span>
+                          ) : d.paymentType === 'ELECTRONIC' ? (
+                            <span className="text-[10px] bg-[#0071E3]/10 text-[#0071E3] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
+                              <CreditCard className="w-3 h-3" />
+                              ئەلکترۆنی
                             </span>
                           ) : (
                             <span className="text-[10px] bg-[#FF9500]/10 text-[#FF9500] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
@@ -1028,11 +1044,11 @@ export const RepSalesView: React.FC = () => {
                     ئەگەر بە قەرز بێت، بڕی فرۆشراوەکە یەکسەر دەچێتە سەر کەشف حسابی ئەم مارکێتە
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentType('CREDIT')}
-                    className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                    className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
                       paymentType === 'CREDIT'
                         ? 'bg-[#FF9500] text-white shadow-sm'
                         : 'bg-white text-[#515154] border border-black/[0.06]'
@@ -1044,7 +1060,7 @@ export const RepSalesView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentType('CASH')}
-                    className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                    className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
                       paymentType === 'CASH'
                         ? 'bg-[#34C759] text-white shadow-sm'
                         : 'bg-white text-[#515154] border border-black/[0.06]'
@@ -1052,6 +1068,18 @@ export const RepSalesView: React.FC = () => {
                   >
                     <Banknote className="w-3.5 h-3.5" />
                     کاش (نەقد)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentType('ELECTRONIC')}
+                    className={`px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+                      paymentType === 'ELECTRONIC'
+                        ? 'bg-[#0071E3] text-white shadow-sm'
+                        : 'bg-white text-[#515154] border border-black/[0.06]'
+                    }`}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    پارەدانی ئەلکترۆنی
                   </button>
                 </div>
               </div>
@@ -1707,6 +1735,8 @@ export const RepSalesView: React.FC = () => {
                     <span className="font-bold">
                       {selectedSaleForPrint.paymentType === 'CASH'
                         ? 'کاش (نەقد)'
+                        : selectedSaleForPrint.paymentType === 'ELECTRONIC'
+                        ? 'پارەدانی ئەلکترۆنی (FIB / کارت)'
                         : 'قەرز (لەسەر حسابی مارکێت)'}
                     </span>
                   </div>

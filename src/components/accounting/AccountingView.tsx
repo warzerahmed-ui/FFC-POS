@@ -13,15 +13,13 @@ import {
   CheckCircle2,
   Search,
   Filter,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { Customer, Supplier } from '../../types';
-import { DailySettlementView } from './DailySettlementView';
 
 export const AccountingView: React.FC = () => {
-  const { customers, suppliers, vouchers, dispatches, returns, addVoucher, addCustomer, addSupplier } = useApp();
+  const { customers, suppliers, vouchers, dispatches, posSales, returns, addVoucher, addCustomer, addSupplier } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'VOUCHERS' | 'SETTLEMENTS' | 'CUSTOMERS' | 'SUPPLIERS'>('VOUCHERS');
+  const [activeSubTab, setActiveSubTab] = useState<'VOUCHERS' | 'CUSTOMERS' | 'SUPPLIERS'>('VOUCHERS');
 
   // Customer Statement Modal with Date Range Filter!
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -158,8 +156,29 @@ export const AccountingView: React.FC = () => {
       return [];
     });
 
+    // 1b. Showroom POS Debt Purchases
+    const posDebtTx = posSales
+      .filter(
+        s =>
+          s.paymentType === 'DEBT' &&
+          (s.customerId === customer.id ||
+            (s.customerName &&
+              (s.customerName.includes(customer.name) || customer.name.includes(s.customerName))))
+      )
+      .map(s => ({
+        id: `pos-${s.id}`,
+        date: s.date,
+        time: s.time || '10:00 ص',
+        refNo: s.saleNo,
+        type: 'PURCHASE' as const,
+        description: `فرۆشی قەرزی شۆرۆم (${s.items.map(i => `${i.productName} ${i.weightKg} کگم`).join('، ')})`,
+        debit: s.total,
+        credit: 0,
+        discount: s.discount || 0,
+      }));
+
     // Add baseline historical purchase if needed
-    if (purchaseTx.length === 0) {
+    if (purchaseTx.length === 0 && posDebtTx.length === 0) {
       purchaseTx.push({
         id: 'tx-base',
         date: '2026-10-15',
@@ -207,7 +226,7 @@ export const AccountingView: React.FC = () => {
       }));
 
     // Combine and sort by date & time
-    const all = [...purchaseTx, ...paymentTx, ...returnTx].sort((a, b) => a.date.localeCompare(b.date));
+    const all = [...purchaseTx, ...posDebtTx, ...paymentTx, ...returnTx].sort((a, b) => a.date.localeCompare(b.date));
 
     // Calculate opening balance before startDate
     let openingBalance = 0;
@@ -253,7 +272,7 @@ export const AccountingView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${activeSubTab === 'SETTLEMENTS' ? 'no-print' : ''}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1D1D1F] tracking-tight flex items-center gap-2">
             <Calculator className="w-6 h-6 text-[#0071E3]" />
@@ -296,7 +315,7 @@ export const AccountingView: React.FC = () => {
       </div>
 
       {/* Apple Segmented Control */}
-      <div className={`p-1 bg-[#EAEAEA] rounded-full inline-flex flex-wrap gap-1 ${activeSubTab === 'SETTLEMENTS' ? 'no-print' : ''}`}>
+      <div className="p-1 bg-[#EAEAEA] rounded-full inline-flex flex-wrap gap-1">
         <button
           onClick={() => setActiveSubTab('VOUCHERS')}
           className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
@@ -307,18 +326,6 @@ export const AccountingView: React.FC = () => {
         >
           <Receipt className="w-3.5 h-3.5 text-[#34C759]" />
           سەنەداتی سافکردنی قەرز ({vouchers.length})
-        </button>
-
-        <button
-          onClick={() => { setActiveSubTab('SETTLEMENTS'); setSelectedCustomer(null); setSelectedSupplier(null); }}
-          className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
-            activeSubTab === 'SETTLEMENTS'
-              ? 'bg-white text-[#1D1D1F] shadow-sm font-bold'
-              : 'text-[#515154] hover:text-[#1D1D1F]'
-          }`}
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-[#AF52DE]" />
-          کەشف و تەسفییەی مەندوب و شۆرۆم
         </button>
 
         <button
@@ -345,9 +352,6 @@ export const AccountingView: React.FC = () => {
           کەشف حسابی کێڵگەکان
         </button>
       </div>
-
-      {/* View 1.5: Daily Rep & Showroom Statement & Settlement */}
-      {activeSubTab === 'SETTLEMENTS' && <DailySettlementView />}
 
       {/* View 1: Vouchers List */}
       {activeSubTab === 'VOUCHERS' && (

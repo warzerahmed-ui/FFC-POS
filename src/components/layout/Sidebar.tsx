@@ -49,12 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'intake' as TabType, label: '١. وەرگرتنی مریشک (کێڵگە)', icon: Truck, badge: 'قۆناغی ١' },
     { id: 'production' as TabType, label: '٢. سەربڕین و پارچەکردن', icon: Factory, badge: 'قۆناغی ٢' },
     { id: 'ready-for-sale' as TabType, label: '٣. ئامادە بۆ فرۆشتن', icon: PackageCheck, badge: 'قۆناغی ٣' },
-    { id: 'custody' as TabType, label: 'حسابی مەندوب و فرۆشگا', icon: ClipboardList, badge: 'عەهدە' },
-    { id: 'rep-sales' as TabType, label: 'فرۆشتنی مەندوب و گەڕاوە', icon: Send, badge: 'مارکێت' },
-    { id: 'gifts' as TabType, label: 'دیاری و هەدیە', icon: Gift, badge: 'بەلاش' },
-    { id: 'pos' as TabType, label: 'فرۆشگای تایبەت (POS)', icon: ShoppingBag, badge: 'بارکۆد' },
-    { id: 'accounting' as TabType, label: 'ژمێریاری و کەشف حساب', icon: Calculator, badge: 'قەرز' },
-    { id: 'reports' as TabType, label: 'ڕاپۆرتی قازانج و خەرجی', icon: FileSpreadsheet, badge: 'P & L' },
+    { id: 'custody' as TabType, label: '٤. ناردن بۆ مەندوب و شۆرۆم', icon: ClipboardList, badge: 'عەهدە' },
+    { id: 'rep-sales' as TabType, label: '٥. فرۆشتنی مەندوب و گەڕاوە', icon: Send, badge: 'مارکێت' },
+    { id: 'pos' as TabType, label: '٦. فرۆشگای شۆرۆم (POS)', icon: ShoppingBag, badge: 'دوکان' },
+    { id: 'gifts' as TabType, label: '٧. دیاری و هەدیە', icon: Gift, badge: 'فری' },
+    { id: 'accounting' as TabType, label: '٨. کەشف حساب و دانەوەی قەرز', icon: Calculator, badge: 'قەرز' },
+    { id: 'reports' as TabType, label: '٩. قازانج و زەرەر و ڕاپۆرتی ڕۆژانە', icon: FileSpreadsheet, badge: 'P & L' },
   ];
 
   const accessibleMenuItems = menuItems.filter(item => hasAccess(item.id));

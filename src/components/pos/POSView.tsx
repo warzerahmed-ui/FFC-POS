@@ -8,12 +8,12 @@ import {
   CreditCard,
   Banknote,
   Boxes,
-  Truck,
+  RotateCcw,
+  Users,
   Plus,
   Search,
   CheckCircle2,
   TrendingUp,
-  ArrowDownToLine,
   X,
   Scale,
   Receipt,
@@ -22,7 +22,7 @@ import {
   Edit3,
   AlertCircle,
 } from 'lucide-react';
-import { POSSaleItem, POSSale, ProductItem, BranchDeliveryItem, BranchStockItem } from '../../types';
+import { POSSaleItem, POSSale, ProductItem, ReturnItem, BranchStockItem } from '../../types';
 
 // ==========================================
 // AUDIO FEEDBACK HELPER (Web Audio API)
@@ -118,18 +118,19 @@ export const POSView: React.FC = () => {
     products,
     posSales,
     branchStock,
-    branchDeliveries,
+    returns,
+    customers,
     branchExpenses,
     currentUser,
     addPOSSale,
-    addBranchDelivery,
+    addReturn,
     addBranchExpense,
     updateBranchStockItem,
     parseWeightBarcode,
   } = useApp();
 
   // Apple Segmented Tabs
-  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'INBOUND' | 'INVENTORY' | 'REGISTER_REPORT'>('REGISTER');
+  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'BRANCH_RETURNS' | 'INVENTORY' | 'REGISTER_REPORT'>('REGISTER');
 
   // ==========================================
   // POS REGISTER STATE
@@ -143,6 +144,7 @@ export const POSView: React.FC = () => {
   const [paymentType, setPaymentType] = useState<'CASH' | 'FIB_OR_CARD' | 'DEBT'>('CASH');
   const [cashGiven, setCashGiven] = useState<string>('');
   const [customerNameInput, setCustomerNameInput] = useState<string>('کڕیاری ئاسایی نەقد');
+  const [selectedDebtCustomerId, setSelectedDebtCustomerId] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warn' | 'info' } | null>(null);
 
   // Numeric Weight Scale Modal
@@ -278,6 +280,11 @@ export const POSView: React.FC = () => {
       return;
     }
 
+    const resolvedCustomerName =
+      paymentType === 'DEBT' && selectedDebtCustomerId
+        ? customers.find(c => c.id === selectedDebtCustomerId)?.name || customerNameInput.trim() || 'کڕیاری قەرز'
+        : customerNameInput.trim() || 'کڕیاری ئاسایی نەقد';
+
     const sale = addPOSSale({
       date: new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
@@ -285,10 +292,11 @@ export const POSView: React.FC = () => {
       subtotal,
       discount: calculatedDiscount,
       total: netTotal,
-      paidAmount: paymentType === 'CASH' ? (numericCashGiven > 0 ? numericCashGiven : netTotal) : netTotal,
+      paidAmount: paymentType === 'CASH' ? (numericCashGiven > 0 ? numericCashGiven : netTotal) : paymentType === 'DEBT' ? 0 : netTotal,
       changeAmount: changeDue,
       paymentType,
-      customerName: customerNameInput.trim() || 'کڕیاری ئاسایی نەقد',
+      customerId: paymentType === 'DEBT' ? selectedDebtCustomerId || undefined : undefined,
+      customerName: resolvedCustomerName,
       cashierName: currentUser?.name || 'کاشێری شۆروم',
     });
 
@@ -298,101 +306,96 @@ export const POSView: React.FC = () => {
     setDiscountAmount(0);
     setDiscountPercent(0);
     setCashGiven('');
+    setSelectedDebtCustomerId('');
     showToast(`وەسڵی ${sale.saleNo} بە سەرکەوتوویی تەواو کرا`, 'success');
   };
 
   // ==========================================
-  // INBOUND WAREHOUSE BY BARCODE STATE
+  // SHOWROOM 3-DAY UNSOLD RETURNS TO READY STOCK
   // ==========================================
-  const [inboundBarcode, setInboundBarcode] = useState('');
-  const [inboundReceiptNo, setInboundReceiptNo] = useState(`INB-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [inboundRepName, setInboundRepName] = useState('مەندوب شوان (گواستنەوەی کارگە)');
-  const [inboundStagingList, setInboundStagingList] = useState<BranchDeliveryItem[]>([]);
-  const [inboundSelectedProd, setInboundSelectedProd] = useState<ProductItem | null>(products[0] || null);
-  const [inboundWeight, setInboundWeight] = useState<string>('50');
-  const [inboundFactoryCost, setInboundFactoryCost] = useState<number>(products[0]?.costPerKg || 2800);
-  const [inboundDate, setInboundDate] = useState(new Date().toISOString().split('T')[0]);
-  const [inboundNotes, setInboundNotes] = useState('داخلکردنی کۆگای شۆروم بە سکانەری بارکۆد');
+  const [returnReceiptNo, setReturnReceiptNo] = useState(`SH-RET-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0]);
+  const [returnReason, setReturnReason] = useState<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED'>('EXPIRED_3_DAYS');
+  const [returnNotes, setReturnNotes] = useState('گەڕاوەی ٣ ڕۆژی فرۆشگای شۆرۆم بۆ گۆڕینی شێواز لە کۆگای ئامادە');
+  const [returnSelectedProdId, setReturnSelectedProdId] = useState<string>(branchStock[0]?.productId || products[0]?.id || '');
+  const [returnWeightInput, setReturnWeightInput] = useState<string>('');
+  const [returnStagingList, setReturnStagingList] = useState<ReturnItem[]>([]);
 
-  const handleInboundBarcodeScan = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const code = inboundBarcode.trim();
-    if (!code) return;
+  const showroomReturns = returns.filter(r => r.sourceType === 'BRANCH');
 
-    const res = parseWeightBarcode(code);
-    if (res.valid && (res.product || res.branchItem)) {
-      const prod = res.product || products.find(p => p.id === res.branchItem?.productId);
-      if (prod) {
-        setInboundSelectedProd(prod);
-        setInboundFactoryCost(prod.costPerKg);
-        if (res.weightKg > 0 && code.length === 13) {
-          setInboundWeight(res.weightKg.toString());
-        }
-        playPosBeep('scale');
-        showToast(`بەرهەم ناسێنرا: ${prod.nameKu}`, 'success');
-        setInboundBarcode('');
-      }
-    } else {
-      playPosBeep('error');
-      showToast(`بارکۆدی داخڵکردن نەناسراوە: ${code}`, 'warn');
-      setInboundBarcode('');
+  const addStagedReturnItem = () => {
+    const stockItem = branchStock.find(s => s.productId === returnSelectedProdId);
+    const prod = products.find(p => p.id === returnSelectedProdId);
+    const productName = stockItem?.productName || prod?.nameKu || '';
+    const productBarcode = stockItem?.barcode || prod?.barcodePrefix || '';
+    const unitCost = stockItem?.factoryCostPerKg || prod?.costPerKg || 2800;
+
+    if (!returnSelectedProdId || !productName) {
+      showToast('تکایە بەرهەمێک لە کۆگای شۆرۆم هەڵبژێرە', 'warn');
+      return;
     }
-  };
 
-  const addStagedInboundItem = () => {
-    if (!inboundSelectedProd) return;
-    const weight = parseFloat(inboundWeight);
+    const weight = parseFloat(returnWeightInput);
     if (isNaN(weight) || weight <= 0) {
       showToast('تکایە کێشێکی دروست بە کیلۆگرام بنووسە', 'warn');
       return;
     }
 
-    const totalCost = Math.round(weight * inboundFactoryCost);
-    setInboundStagingList(prev => [
+    if (stockItem && weight > stockItem.inStockKg) {
+      showToast(`ئەم کێشە لە کۆگای شۆرۆم بەردەست نییە! بەردەست: ${stockItem.inStockKg.toFixed(1)} کگم`, 'warn');
+      return;
+    }
+
+    setReturnStagingList(prev => [
       ...prev,
       {
-        productId: inboundSelectedProd.id,
-        productName: inboundSelectedProd.nameKu,
+        productId: returnSelectedProdId,
+        productName,
+        barcode: productBarcode,
         weightKg: weight,
-        factoryPricePerKg: inboundFactoryCost,
-        totalCost,
+        unitCost,
+        totalLoss: Math.round(weight * unitCost),
+        reason: returnReason,
       },
     ]);
 
     playPosBeep('success');
-    showToast(`زیادکرا بۆ لیستی هاتوو: ${inboundSelectedProd.nameKu} (${weight} کگم)`, 'success');
-    setInboundWeight('50');
+    showToast(`زیادکرا بۆ لیستی گەڕاوە: ${productName} (${weight} کگم)`, 'success');
+    setReturnWeightInput('');
   };
 
-  const removeStagedInboundItem = (index: number) => {
-    setInboundStagingList(prev => prev.filter((_, i) => i !== index));
+  const removeStagedReturnItem = (index: number) => {
+    setReturnStagingList(prev => prev.filter((_, i) => i !== index));
     playPosBeep('scale');
   };
 
-  const commitInboundToWarehouse = () => {
-    if (inboundStagingList.length === 0) {
-      showToast('لیستەکە بەتاڵە! لانیکەم بەرهەمێک زیاد بکە', 'warn');
+  const commitShowroomReturn = () => {
+    if (returnStagingList.length === 0) {
+      showToast('لیستی گەڕاوە بەتاڵە! لانیکەم بەرهەمێک زیاد بکە', 'warn');
       return;
     }
 
-    const totalWeightKg = inboundStagingList.reduce((sum, item) => sum + item.weightKg, 0);
-    const totalCost = inboundStagingList.reduce((sum, item) => sum + item.totalCost, 0);
+    const totalWeightKg = returnStagingList.reduce((sum, item) => sum + item.weightKg, 0);
+    const totalLossAmount = returnStagingList.reduce((sum, item) => sum + item.totalLoss, 0);
 
-    addBranchDelivery({
-      manualReceiptNo: inboundReceiptNo.trim() || `INB-${Date.now().toString().slice(-4)}`,
-      date: inboundDate,
+    addReturn({
+      manualReceiptNo: returnReceiptNo.trim() || `SH-RET-${Date.now().toString().slice(-4)}`,
+      date: returnDate,
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      repName: inboundRepName,
-      items: [...inboundStagingList],
+      sourceType: 'BRANCH',
+      sourceName: 'فرۆشگای تایبەت (شۆرۆم POS)',
+      items: [...returnStagingList],
       totalWeightKg,
-      totalCost,
-      notes: inboundNotes,
+      totalLossAmount,
+      totalCustomerDeduction: 0,
+      disposalMethod: 'DESTROYED',
+      notes: returnNotes,
     });
 
     playPosBeep('success');
-    showToast(`کۆی ${totalWeightKg.toFixed(1)} کگم خرایە سەر کۆگای شۆرۆم`, 'success');
-    setInboundStagingList([]);
-    setInboundReceiptNo(`INB-${Math.floor(1000 + Math.random() * 9000)}`);
+    showToast(`گەڕاوەی شۆرۆم (${totalWeightKg.toFixed(1)} کگم) تۆمارکرا و نێردرا بۆ ئامادە بۆ گۆڕین`, 'success');
+    setReturnStagingList([]);
+    setReturnReceiptNo(`SH-RET-${Math.floor(1000 + Math.random() * 9000)}`);
   };
 
   // ==========================================
@@ -512,13 +515,13 @@ export const POSView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveSubTab('INBOUND')}
+            onClick={() => setActiveSubTab('BRANCH_RETURNS')}
             className={`apple-segment-btn flex items-center gap-1.5 ${
-              activeSubTab === 'INBOUND' ? 'apple-segment-btn-active' : ''
+              activeSubTab === 'BRANCH_RETURNS' ? 'apple-segment-btn-active' : ''
             }`}
           >
-            <ArrowDownToLine className="w-3.5 h-3.5 text-[#5856D6]" />
-            <span>داخلکردنی کۆگا بە بارکۆد</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#FF3B30]" />
+            <span>گەڕاوەی ٣ ڕۆژی شۆرۆم</span>
           </button>
 
           <button
@@ -799,12 +802,41 @@ export const POSView: React.FC = () => {
               {/* Summary & Payment Controls */}
               <div className="pt-3 border-t border-black/[0.06] space-y-3">
                 {/* Customer & Discount */}
+                {paymentType === 'DEBT' && (
+                  <div className="p-2.5 rounded-2xl bg-[#FF3B30]/8 border border-[#FF3B30]/20 space-y-1.5 text-xs">
+                    <div className="flex items-center gap-1.5 text-[#D70015] font-bold">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>هەڵبژاردنی کڕیاری قەرز (ئەم بڕە دەچێتە سەر کەشف حسابی کڕیار):</span>
+                    </div>
+                    <select
+                      value={selectedDebtCustomerId}
+                      onChange={e => {
+                        const cid = e.target.value;
+                        setSelectedDebtCustomerId(cid);
+                        const found = customers.find(c => c.id === cid);
+                        if (found) setCustomerNameInput(found.name);
+                      }}
+                      className="apple-input bg-white w-full px-3 py-1.5 text-xs font-bold"
+                    >
+                      <option value="">-- کڕیارێکی نوێ بنووسە یان هەڵبژێرە --</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} (قەرز: {c.currentDebt.toLocaleString()} د.ع)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <input
                     type="text"
                     value={customerNameInput}
-                    onChange={e => setCustomerNameInput(e.target.value)}
-                    placeholder="ناوی کڕیار..."
+                    onChange={e => {
+                      setCustomerNameInput(e.target.value);
+                      if (selectedDebtCustomerId) setSelectedDebtCustomerId('');
+                    }}
+                    placeholder={paymentType === 'DEBT' ? 'ناوی کڕیاری قەرز...' : 'ناوی کڕیار...'}
                     className="apple-input px-3 py-1.5 text-xs font-medium"
                   />
                   <div className="flex items-center gap-1 bg-[#F5F5F7] border border-black/[0.06] rounded-xl px-2">
@@ -928,50 +960,29 @@ export const POSView: React.FC = () => {
       {/* ========================================================================= */}
       {/* TAB 2: WAREHOUSE INBOUND BY BARCODE (داخلکردنی کۆگا بە سکانەری بارکۆد) */}
       {/* ========================================================================= */}
-      {activeSubTab === 'INBOUND' && (
+      {/* TAB 2: SHOWROOM 3-DAY UNSOLD RETURNS (گەڕاوەی ٣ ڕۆژی شۆرۆم بۆ ئامادە) */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'BRANCH_RETURNS' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Inbound Form Card */}
+          {/* Return Registration Form Card */}
           <div className="lg:col-span-5 apple-card p-5 space-y-4">
             <div className="flex items-center gap-3 pb-3 border-b border-black/[0.06]">
-              <div className="w-10 h-10 rounded-2xl bg-[#5856D6]/12 text-[#5856D6] flex items-center justify-center">
-                <ArrowDownToLine className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-[#FF3B30]/12 text-[#FF3B30] flex items-center justify-center">
+                <RotateCcw className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-[#1D1D1F]">داخلکردنی بار بۆ کۆگا بە بارکۆد</h3>
-                <p className="text-[11px] text-[#86868B]">سکانکردنی کارتۆن/کاڵا یان تۆمار بە وەسڵی دەستی</p>
+                <h3 className="font-extrabold text-sm text-[#1D1D1F]">تۆمارکردنی گەڕاوەی ٣ ڕۆژی ناو شۆرۆم</h3>
+                <p className="text-[11px] text-[#86868B]">ئەو بەرهەمانەی لە ماوەی ٣ ڕۆژدا لە شۆرۆم نەفرۆشراون و دەگەڕێنرێنەوە بۆ کۆگای ئامادە بۆ گۆڕینی شێواز</p>
               </div>
-            </div>
-
-            {/* Barcode Scanner Input */}
-            <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-[#5856D6]/20 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-[#5856D6]">
-                <span>سکانەری بارکۆدی هاتوو</span>
-                <span className="w-2 h-2 rounded-full bg-[#34C759] animate-pulse" />
-              </div>
-              <form onSubmit={handleInboundBarcodeScan} className="flex gap-2">
-                <input
-                  type="text"
-                  value={inboundBarcode}
-                  onChange={e => setInboundBarcode(e.target.value)}
-                  placeholder="بارکۆد لێبدە..."
-                  className="apple-input bg-white flex-1 px-3 py-2 text-xs font-mono font-bold"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#5856D6] hover:bg-[#4B49B6] text-white font-bold rounded-xl text-xs transition-colors"
-                >
-                  پشکنین
-                </button>
-              </form>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="font-semibold text-[#515154] block mb-1">ژ. وەسڵی دەستی:</label>
+                <label className="font-semibold text-[#515154] block mb-1">ژمارەی وەسڵی گەڕاوە:</label>
                 <input
                   type="text"
-                  value={inboundReceiptNo}
-                  onChange={e => setInboundReceiptNo(e.target.value)}
+                  value={returnReceiptNo}
+                  onChange={e => setReturnReceiptNo(e.target.value)}
                   className="apple-input w-full px-3 py-2 font-mono font-bold text-xs"
                 />
               </div>
@@ -979,91 +990,94 @@ export const POSView: React.FC = () => {
                 <label className="font-semibold text-[#515154] block mb-1">بەروار:</label>
                 <input
                   type="date"
-                  value={inboundDate}
-                  onChange={e => setInboundDate(e.target.value)}
+                  value={returnDate}
+                  onChange={e => setReturnDate(e.target.value)}
                   className="apple-input w-full px-3 py-2 font-medium text-xs"
                 />
               </div>
             </div>
 
             <div className="text-xs">
-              <label className="font-semibold text-[#515154] block mb-1">مەندوب / هێنەر:</label>
-              <input
-                type="text"
-                value={inboundRepName}
-                onChange={e => setInboundRepName(e.target.value)}
-                className="apple-input w-full px-3 py-2 font-medium text-xs"
-              />
+              <label className="font-semibold text-[#515154] block mb-1">هۆکاری گەڕاندنەوە:</label>
+              <select
+                value={returnReason}
+                onChange={e => setReturnReason(e.target.value as 'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED')}
+                className="apple-input w-full px-3 py-2 font-bold text-xs"
+              >
+                <option value="EXPIRED_3_DAYS">ماوەی ٣ ڕۆژی فرۆشتنی تێپەڕیوە (گەڕاوەی فرێش)</option>
+                <option value="DAMAGED">تێکچوونی کیسە یان بار</option>
+                <option value="SPOILED">تێکچوون</option>
+              </select>
             </div>
 
-            {/* Item Selection */}
+            {/* Item Selection from Showroom Stock */}
             <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-black/[0.05] space-y-3 text-xs">
               <div>
-                <label className="font-semibold text-[#515154] block mb-1">بەرهەم:</label>
+                <label className="font-semibold text-[#515154] block mb-1">بەرهەم لە کۆگای شۆرۆم:</label>
                 <select
-                  value={inboundSelectedProd?.id}
-                  onChange={e => {
-                    const found = products.find(p => p.id === e.target.value);
-                    if (found) {
-                      setInboundSelectedProd(found);
-                      setInboundFactoryCost(found.costPerKg);
-                    }
-                  }}
+                  value={returnSelectedProdId}
+                  onChange={e => setReturnSelectedProdId(e.target.value)}
                   className="apple-input bg-white w-full px-3 py-2 font-bold text-xs"
                 >
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.nameKu} (#{p.code})
+                  {branchStock.map(s => (
+                    <option key={s.productId} value={s.productId}>
+                      {s.productName} (بەردەست لە شۆرۆم: {s.inStockKg.toFixed(1)} کگم)
                     </option>
                   ))}
+                  {branchStock.length === 0 &&
+                    products.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nameKu} (#{p.code})
+                      </option>
+                    ))}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-semibold text-[#515154] block mb-1">کێشی هاتوو (کگم):</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={inboundWeight}
-                    onChange={e => setInboundWeight(e.target.value)}
-                    className="apple-input bg-white w-full px-3 py-2 font-extrabold text-sm text-[#0071E3] tabular-nums"
-                  />
-                </div>
-                <div>
-                  <label className="font-semibold text-[#515154] block mb-1">تێچووی کارگە (د.ع):</label>
-                  <input
-                    type="number"
-                    value={inboundFactoryCost}
-                    onChange={e => setInboundFactoryCost(parseFloat(e.target.value) || 0)}
-                    className="apple-input bg-white w-full px-3 py-2 font-bold text-xs tabular-nums"
-                  />
-                </div>
+              <div>
+                <label className="font-semibold text-[#515154] block mb-1">کێشی گەڕاوە (کگم):</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="نموونە: 12.5"
+                  value={returnWeightInput}
+                  onChange={e => setReturnWeightInput(e.target.value)}
+                  className="apple-input bg-white w-full px-3 py-2 font-extrabold text-sm text-[#FF3B30] tabular-nums"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-[#515154] block mb-1">تێبینی:</label>
+                <input
+                  type="text"
+                  value={returnNotes}
+                  onChange={e => setReturnNotes(e.target.value)}
+                  className="apple-input bg-white w-full px-3 py-2 text-xs"
+                />
               </div>
 
               <button
                 type="button"
-                onClick={addStagedInboundItem}
+                onClick={addStagedReturnItem}
                 className="w-full py-2.5 rounded-xl bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.985]"
               >
                 <Plus className="w-4 h-4" />
-                زیادکردن بۆ لیستی هاتوو
+                زیادکردن بۆ لیستی گەڕاوە
               </button>
             </div>
           </div>
 
           {/* Staging List & History */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="apple-card p-5 flex flex-col justify-between min-h-[380px]">
+            <div className="apple-card p-5 flex flex-col justify-between min-h-[340px]">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-[#5856D6]/12 text-[#5856D6] font-bold flex items-center justify-center text-xs tabular-nums">
-                      {inboundStagingList.length}
+                    <span className="w-6 h-6 rounded-full bg-[#FF3B30]/12 text-[#FF3B30] font-bold flex items-center justify-center text-xs tabular-nums">
+                      {returnStagingList.length}
                     </span>
-                    <h4 className="font-extrabold text-sm text-[#1D1D1F]">پێداچوونەوەی وەجبەی وەرگیراو</h4>
+                    <h4 className="font-extrabold text-sm text-[#1D1D1F]">لیستی کاڵای گەڕاوەی شۆرۆم</h4>
                   </div>
-                  <span className="text-xs font-mono text-[#86868B]">وەسڵ: {inboundReceiptNo}</span>
+                  <span className="text-xs font-mono text-[#86868B]">وەسڵ: {returnReceiptNo}</span>
                 </div>
 
                 <div className="mt-3 overflow-x-auto">
@@ -1072,34 +1086,34 @@ export const POSView: React.FC = () => {
                       <tr className="border-b border-black/[0.06] text-[#86868B] font-semibold">
                         <th className="py-2">بەرهەم</th>
                         <th className="py-2 text-center">کێش (کگم)</th>
-                        <th className="py-2 text-center">تێچوو</th>
-                        <th className="py-2 text-left">کۆ</th>
+                        <th className="py-2 text-center">بەهای تێچوو</th>
+                        <th className="py-2 text-left">هۆکار</th>
                         <th className="py-2 text-center">لابردن</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/[0.04]">
-                      {inboundStagingList.length === 0 ? (
+                      {returnStagingList.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="py-12 text-center text-[#86868B]">
-                            هێشتا هیچ کاڵایەک زیاد نەکراوە. بارکۆد سکان بکە یان بەرهەم زیاد بکە.
+                            هێشتا هیچ کاڵایەکی گەڕاوە زیاد نەکراوە.
                           </td>
                         </tr>
                       ) : (
-                        inboundStagingList.map((item, idx) => (
+                        returnStagingList.map((item, idx) => (
                           <tr key={idx}>
                             <td className="py-2.5 font-bold text-[#1D1D1F]">{item.productName}</td>
-                            <td className="py-2.5 text-center font-bold text-[#0071E3] tabular-nums">
+                            <td className="py-2.5 text-center font-bold text-[#FF3B30] tabular-nums">
                               {item.weightKg.toFixed(2)} کگم
                             </td>
                             <td className="py-2.5 text-center tabular-nums text-[#515154]">
-                              {item.factoryPricePerKg.toLocaleString()} د.ع
+                              {item.totalLoss.toLocaleString()} د.ع
                             </td>
-                            <td className="py-2.5 text-left font-bold tabular-nums text-[#1D1D1F]">
-                              {item.totalCost.toLocaleString()} د.ع
+                            <td className="py-2.5 text-left text-[11px] font-semibold text-[#515154]">
+                              {item.reason === 'EXPIRED_3_DAYS' ? 'تێپەڕینی ٣ ڕۆژ' : item.reason === 'DAMAGED' ? 'تێکچوونی کیسە' : 'تێکچوو'}
                             </td>
                             <td className="py-2.5 text-center">
                               <button
-                                onClick={() => removeStagedInboundItem(idx)}
+                                onClick={() => removeStagedReturnItem(idx)}
                                 className="text-[#86868B] hover:text-[#FF3B30] p-1"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1113,53 +1127,65 @@ export const POSView: React.FC = () => {
                 </div>
               </div>
 
-              {inboundStagingList.length > 0 && (
+              {returnStagingList.length > 0 && (
                 <div className="pt-4 border-t border-black/[0.06] space-y-3">
                   <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F5F5F7] text-xs font-bold">
-                    <span className="text-[#515154]">کۆی کێشی وەجبە:</span>
-                    <span className="text-sm font-extrabold text-[#0071E3] tabular-nums">
-                      {inboundStagingList.reduce((sum, item) => sum + item.weightKg, 0).toFixed(2)} کگم
+                    <span className="text-[#515154]">کۆی کێشی گەڕاوە:</span>
+                    <span className="text-sm font-extrabold text-[#FF3B30] tabular-nums">
+                      {returnStagingList.reduce((sum, item) => sum + item.weightKg, 0).toFixed(2)} کگم
                     </span>
-                    <span className="text-[#515154]">کۆی بەها:</span>
+                    <span className="text-[#515154]">بەهای تێچوو:</span>
                     <span className="text-sm font-extrabold text-[#1D1D1F] tabular-nums">
-                      {inboundStagingList.reduce((sum, item) => sum + item.totalCost, 0).toLocaleString()} د.ع
+                      {returnStagingList.reduce((sum, item) => sum + item.totalLoss, 0).toLocaleString()} د.ع
                     </span>
                   </div>
 
                   <button
-                    onClick={commitInboundToWarehouse}
-                    className="w-full py-3.5 rounded-2xl bg-[#34C759] hover:bg-[#2EB850] text-white font-bold text-sm shadow-sm active:scale-[0.985] transition-all flex items-center justify-center gap-2"
+                    onClick={commitShowroomReturn}
+                    className="w-full py-3.5 rounded-2xl bg-[#FF3B30] hover:bg-[#E0352B] text-white font-bold text-sm shadow-sm active:scale-[0.985] transition-all flex items-center justify-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>تۆمارکردن و زیادکردن بۆ کۆگای شۆرۆم</span>
+                    <span>تۆمارکردن و ناردنەوە بۆ ئامادە بۆ گۆڕینی شێواز</span>
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Inbound History Card */}
+            {/* Showroom Return History */}
             <div className="apple-card p-5 space-y-3">
               <h4 className="font-extrabold text-xs text-[#1D1D1F] flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#0071E3]" />
-                مێژووی هاتنی بار لە کارگەوە بۆ شۆرۆم
+                <RotateCcw className="w-4 h-4 text-[#FF3B30]" />
+                مێژووی گەڕاوەی ٣ ڕۆژی شۆرۆم ({showroomReturns.length})
               </h4>
-              <div className="divide-y divide-black/[0.05] max-h-48 overflow-y-auto">
-                {branchDeliveries.map(del => (
-                  <div key={del.id} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-[#1D1D1F] flex items-center gap-1.5">
-                        <span className="font-mono text-[#0071E3]">#{del.manualReceiptNo}</span>
-                        <span>• {del.repName}</span>
+              <div className="divide-y divide-black/[0.05] max-h-56 overflow-y-auto">
+                {showroomReturns.length === 0 ? (
+                  <p className="text-xs text-[#86868B] py-4 text-center">هیچ گەڕاوەیەکی شۆرۆم تۆمار نەکراوە</p>
+                ) : (
+                  showroomReturns.map(ret => (
+                    <div key={ret.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-bold text-[#1D1D1F] flex items-center gap-2">
+                          <span className="font-mono text-[#FF3B30]">#{ret.manualReceiptNo}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              ret.conversionStatus === 'CONVERTED'
+                                ? 'bg-[#34C759]/12 text-[#248A3D]'
+                                : 'bg-[#FF9500]/12 text-[#C93400]'
+                            }`}
+                          >
+                            {ret.conversionStatus === 'CONVERTED' ? 'گۆڕدراوە بۆ شێوازی نوێ' : 'چاوەڕێی گۆڕین لە ئامادە'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-[#86868B]">
+                          {ret.date} {ret.time} • {ret.items.map(i => `${i.productName} (${i.weightKg} کگم)`).join('، ')}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-[#86868B]">
-                        {del.date} {del.time} • {del.items.map(i => `${i.productName} (${i.weightKg} کگم)`).join('، ')}
+                      <span className="font-extrabold text-[#FF3B30] tabular-nums">
+                        {ret.totalWeightKg.toFixed(1)} کگم
                       </span>
                     </div>
-                    <span className="font-extrabold text-[#1D1D1F] tabular-nums">
-                      {del.totalWeightKg.toFixed(1)} کگم
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>

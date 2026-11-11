@@ -16,10 +16,12 @@ import {
   X,
 } from 'lucide-react';
 import { ExpenseRecord } from '../../types';
+import { DailySettlementView } from '../accounting/DailySettlementView';
 
 export const ReportsView: React.FC = () => {
   const { intakes, dispatches, posSales, returns, expenses, branchExpenses, products, addExpense } = useApp();
 
+  const [activeReportTab, setActiveReportTab] = useState<'PNL' | 'DAILY'>('PNL');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseCategory, setExpenseCategory] = useState<ExpenseRecord['category']>('FUEL');
   const [expenseTitle, setExpenseTitle] = useState('');
@@ -117,8 +119,36 @@ export const ReportsView: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="apple-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Apple Segmented Switch */}
+      <div className={`apple-segmented w-fit ${activeReportTab === 'DAILY' ? 'no-print' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setActiveReportTab('PNL')}
+          className={`apple-segment-btn flex items-center gap-1.5 ${
+            activeReportTab === 'PNL' ? 'apple-segment-btn-active' : ''
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5 text-[#34C759]" />
+          <span>ڕاپۆرتی قازانج و زەرەر (P&amp;L)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveReportTab('DAILY')}
+          className={`apple-segment-btn flex items-center gap-1.5 ${
+            activeReportTab === 'DAILY' ? 'apple-segment-btn-active' : ''
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5 text-[#AF52DE]" />
+          <span>ڕاپۆرت و تەسفییەی ڕۆژانە (مەندوب و شۆرۆم)</span>
+        </button>
+      </div>
+
+      {activeReportTab === 'DAILY' && <DailySettlementView />}
+
+      {activeReportTab === 'PNL' && (
+        <>
+          {/* Header */}
+          <div className="apple-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-[#FF9500]/12 text-[#FF9500] flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5" />
@@ -288,6 +318,8 @@ export const ReportsView: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
 
       {/* Add Expense Sheet */}
       {showExpenseModal && (

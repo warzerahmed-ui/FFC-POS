@@ -95,7 +95,7 @@ export interface DispatchOrder {
   destinationName: string;
   repName?: string;
   customerName?: string;
-  paymentType?: 'CREDIT' | 'CASH';
+  paymentType?: 'CREDIT' | 'CASH' | 'ELECTRONIC';
   driverOrRepPhone?: string;
   items: DispatchItem[];
   totalWeightKg: number;
@@ -215,6 +215,7 @@ export interface POSSale {
   paidAmount?: number;
   changeAmount?: number;
   paymentType: 'CASH' | 'FIB_OR_CARD' | 'DEBT';
+  customerId?: string;
   customerName?: string;
   cashierName: string;
 }

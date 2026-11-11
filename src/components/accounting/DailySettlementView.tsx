@@ -163,7 +163,12 @@ export const DailySettlementView: React.FC = () => {
           receiptNo: d.manualReceiptNo,
           time: d.time || '---',
           partyLabel: d.customerName || d.destinationName,
-          paymentKind: d.paymentType === 'CASH' ? 'CASH' : 'CREDIT',
+          paymentKind:
+            d.paymentType === 'CASH'
+              ? 'CASH'
+              : d.paymentType === 'ELECTRONIC'
+              ? 'CARD'
+              : 'CREDIT',
           weightKg: Number(d.totalWeightKg.toFixed(2)),
           amount: d.totalAmount,
         }));
@@ -358,19 +363,19 @@ export const DailySettlementView: React.FC = () => {
 
     const newDebtCollected = Math.max(0, Number(collectedDebtInput) || 0);
     const newReturnedCash = Math.max(0, Number(returnedCashInput) || 0);
-    const newReturnedCard =
-      settlingAccount.accountType === 'BRANCH'
-        ? Math.max(0, Number(returnedCardInput) || 0)
-        : 0;
+    const tracksCard =
+      settlingAccount.accountType === 'BRANCH' || settlingAccount.cardSalesAmount > 0;
+    const newReturnedCard = tracksCard
+      ? Math.max(0, Number(returnedCardInput) || 0)
+      : 0;
 
     // Expected from this settlement step (or remaining day balance including newly entered debt collection)
     const remainingExpectedCashAfterNewDebt =
       Math.max(0, settlingAccount.expectedCashToday - settlingAccount.returnedCashToday) +
       newDebtCollected;
-    const remainingExpectedCard =
-      settlingAccount.accountType === 'BRANCH'
-        ? Math.max(0, settlingAccount.cardSalesAmount - settlingAccount.returnedCardToday)
-        : 0;
+    const remainingExpectedCard = tracksCard
+      ? Math.max(0, settlingAccount.cardSalesAmount - settlingAccount.returnedCardToday)
+      : 0;
 
     const cumulativeExpectedAll =
       settlingAccount.expectedTotalToday + newDebtCollected;
@@ -471,7 +476,7 @@ export const DailySettlementView: React.FC = () => {
     const newDebt = Math.max(0, Number(collectedDebtInput) || 0);
     const newCash = Math.max(0, Number(returnedCashInput) || 0);
     const newCard =
-      settlingAccount.accountType === 'BRANCH'
+      settlingAccount.accountType === 'BRANCH' || settlingAccount.cardSalesAmount > 0
         ? Math.max(0, Number(returnedCardInput) || 0)
         : 0;
     const totalExpected = settlingAccount.expectedTotalToday + newDebt;
@@ -700,16 +705,17 @@ export const DailySettlementView: React.FC = () => {
                       {acc.creditSalesAmount.toLocaleString()} د.ع
                     </span>
                   </div>
-                  {acc.accountType === 'BRANCH' ? (
+                  {(acc.accountType === 'BRANCH' || acc.cardSalesAmount > 0) && (
                     <div className="p-2.5 rounded-xl bg-[#0071E3]/8">
                       <span className="text-[10px] text-[#0071E3] block font-semibold">
-                        کارت / FIB
+                        ئەلکترۆنی / کارت (FIB)
                       </span>
                       <span className="font-black text-[#0071E3] tabular-nums">
                         {acc.cardSalesAmount.toLocaleString()} د.ع
                       </span>
                     </div>
-                  ) : (
+                  )}
+                  {(acc.accountType === 'REP' || acc.returnsCount > 0) && (
                     <div className="p-2.5 rounded-xl bg-[#FF3B30]/8">
                       <span className="text-[10px] text-[#FF3B30] block font-semibold">
                         گەڕاوەی ٣ ڕۆژ ({acc.returnsCount})
@@ -1016,11 +1022,12 @@ export const DailySettlementView: React.FC = () => {
                   />
                 </div>
 
-                {settlingAccount.accountType === 'BRANCH' && (
+                {(settlingAccount.accountType === 'BRANCH' ||
+                  settlingAccount.cardSalesAmount > 0) && (
                   <div>
                     <label className="block text-[#1D1D1F] font-bold mb-1 flex items-center gap-1">
                       <CreditCard className="w-3.5 h-3.5 text-[#0071E3]" />
-                      بڕی پارەی کارت / FIB گەڕاوە (د.ع)
+                      بڕی پارەی ئەلکترۆنی / کارت (FIB) گەڕاوە (د.ع)
                     </label>
                     <input
                       type="number"
