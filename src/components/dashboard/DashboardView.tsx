@@ -96,7 +96,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
               className="px-4 py-2.5 bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-semibold text-xs rounded-full flex items-center gap-1.5 transition-all"
             >
               <ArrowUpRight className="w-3.5 h-3.5 text-[#34C759]" />
-              فرۆشی مەندوب
+              فرۆشتنی مەندوب و گەڕاوە
             </button>
           )}
 
@@ -235,13 +235,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[11px] font-bold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-1 rounded-full">
-                  فرۆشی مەندوبەکان
+                  فرۆشتنی مەندوب و گەڕاوە
                 </span>
                 <Truck className="w-4 h-4 text-[#0071E3]" />
               </div>
-              <h3 className="text-sm font-extrabold text-[#1D1D1F]">دابەشکردن بۆ مارکێتەکان</h3>
+              <h3 className="text-sm font-extrabold text-[#1D1D1F]">فرۆش و گەڕاوەی ٣ ڕۆژ</h3>
               <p className="text-xs text-[#86868B] mt-1 leading-relaxed">
-                تۆمارکردنی فرۆشی مەندوب بە وەسڵی دەستی، فرۆشی کاش و قەرز بۆ مارکێتەکان.
+                تۆمارکردنی فرۆشی مەندوب بە وەسڵی دەستی و گەڕاوەی تەلەف بە هەمان ژمارەی وەسڵ.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-black/[0.05] flex items-center justify-between text-xs w-full">

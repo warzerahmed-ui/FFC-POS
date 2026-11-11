@@ -5,7 +5,6 @@ import {
   Truck,
   Send,
   Gift,
-  RotateCcw,
   ShoppingBag,
   Calculator,
   FileSpreadsheet,
@@ -42,9 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard' as TabType, label: 'داشبۆردی سەرەکی', icon: LayoutDashboard, badge: null },
     { id: 'intake' as TabType, label: 'وەرگرتنی مریشک (کێڵگە)', icon: Truck, badge: 'وەسڵ' },
-    { id: 'rep-sales' as TabType, label: 'فرۆشی مەندوب', icon: Send, badge: 'مارکێت' },
+    { id: 'rep-sales' as TabType, label: 'فرۆشتنی مەندوب و گەڕاوە', icon: Send, badge: 'مارکێت' },
     { id: 'gifts' as TabType, label: 'دیاری و هەدیە', icon: Gift, badge: 'بەلاش' },
-    { id: 'returns' as TabType, label: 'گەڕاوەی ٣ ڕۆژ', icon: RotateCcw, badge: 'تەلەف' },
     { id: 'pos' as TabType, label: 'فرۆشگای تایبەت (POS)', icon: ShoppingBag, badge: 'بارکۆد' },
     { id: 'accounting' as TabType, label: 'ژمێریاری و کەشف حساب', icon: Calculator, badge: 'قەرز' },
     { id: 'reports' as TabType, label: 'ڕاپۆرتی قازانج و خەرجی', icon: FileSpreadsheet, badge: 'P & L' },
