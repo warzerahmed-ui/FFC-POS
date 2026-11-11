@@ -11,31 +11,27 @@ import {
   Truck,
   Plus,
   Search,
-  Sparkles,
   CheckCircle2,
-  AlertTriangle,
   TrendingUp,
-  RefreshCw,
-  Tag,
-  Calendar,
-  Clock,
   ArrowDownToLine,
   X,
   Scale,
-  DollarSign,
   Receipt,
-  RotateCcw,
   Percent,
   Check,
+  Edit3,
+  AlertCircle,
 } from 'lucide-react';
-import { POSSaleItem, POSSale, ProductItem, BranchDeliveryItem, BranchStockItem, ProductCategory } from '../../types';
+import { POSSaleItem, POSSale, ProductItem, BranchDeliveryItem, BranchStockItem } from '../../types';
 
 // ==========================================
 // AUDIO FEEDBACK HELPER (Web Audio API)
 // ==========================================
 const playPosBeep = (type: 'success' | 'scale' | 'error' = 'success') => {
   try {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     const osc = ctx.createOscillator();
@@ -45,26 +41,26 @@ const playPosBeep = (type: 'success' | 'scale' | 'error' = 'success') => {
 
     if (type === 'success') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      osc.frequency.setValueAtTime(1180, ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
       osc.start();
       osc.stop(ctx.currentTime + 0.08);
     } else if (type === 'scale') {
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(950, ctx.currentTime);
-      osc.frequency.setValueAtTime(1450, ctx.currentTime + 0.05);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.frequency.setValueAtTime(920, ctx.currentTime);
+      osc.frequency.setValueAtTime(1360, ctx.currentTime + 0.04);
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.11);
       osc.start();
-      osc.stop(ctx.currentTime + 0.12);
+      osc.stop(ctx.currentTime + 0.11);
     } else {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(280, ctx.currentTime);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.16, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
       osc.start();
-      osc.stop(ctx.currentTime + 0.25);
+      osc.stop(ctx.currentTime + 0.22);
     }
   } catch {
     // AudioContext blocked or unsupported
@@ -74,8 +70,11 @@ const playPosBeep = (type: 'success' | 'scale' | 'error' = 'success') => {
 // ==========================================
 // SVG BARCODE COMPONENT
 // ==========================================
-const BarcodeSVG: React.FC<{ code: string; width?: number; height?: number }> = ({ code, width = 180, height = 50 }) => {
-  // Generate consistent bar widths based on char codes
+const BarcodeSVG: React.FC<{ code: string; width?: number; height?: number }> = ({
+  code,
+  width = 200,
+  height = 44,
+}) => {
   const bars: { x: number; w: number }[] = [];
   let currentX = 10;
   const totalLength = code.length || 10;
@@ -95,9 +94,9 @@ const BarcodeSVG: React.FC<{ code: string; width?: number; height?: number }> = 
 
   return (
     <svg width={width} height={height} className="mx-auto select-none">
-      <rect width={width} height={height} fill="#ffffff" />
+      <rect width={width} height={height} fill="#FFFFFF" />
       {bars.map((bar, idx) => (
-        <rect key={idx} x={bar.x} y={4} width={Math.max(1, bar.w)} height={height - 18} fill="#111827" />
+        <rect key={idx} x={bar.x} y={4} width={Math.max(1, bar.w)} height={height - 18} fill="#1D1D1F" />
       ))}
       <text
         x={width / 2}
@@ -105,7 +104,7 @@ const BarcodeSVG: React.FC<{ code: string; width?: number; height?: number }> = 
         textAnchor="middle"
         fontSize="10"
         fontFamily="monospace"
-        fill="#374151"
+        fill="#515154"
         letterSpacing="2"
       >
         {code}
@@ -129,8 +128,8 @@ export const POSView: React.FC = () => {
     parseWeightBarcode,
   } = useApp();
 
-  // Active Main Sub-Tab
-  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'INBOUND' | 'INVENTORY' | 'HISTORY' | 'REGISTER_REPORT'>('REGISTER');
+  // Apple Segmented Tabs
+  const [activeSubTab, setActiveSubTab] = useState<'REGISTER' | 'INBOUND' | 'INVENTORY' | 'REGISTER_REPORT'>('REGISTER');
 
   // ==========================================
   // POS REGISTER STATE
@@ -146,24 +145,25 @@ export const POSView: React.FC = () => {
   const [customerNameInput, setCustomerNameInput] = useState<string>('کڕیاری ئاسایی نەقد');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warn' | 'info' } | null>(null);
 
-  // Digital Scale / Weight Modal for Manual item selection
+  // Numeric Weight Scale Modal
   const [weightModalProduct, setWeightModalProduct] = useState<ProductItem | null>(null);
   const [weightKeypadValue, setWeightKeypadValue] = useState<string>('1.000');
 
-  // Thermal Print Modal
+  // Thermal Receipt Print Modal
   const [printReceipt, setPrintReceipt] = useState<POSSale | null>(null);
 
-  // Reference for barcode input focus
+  // Price Editor Modal (replaces native browser prompt)
+  const [editingPriceItem, setEditingPriceItem] = useState<BranchStockItem | null>(null);
+  const [newPriceInput, setNewPriceInput] = useState<string>('');
+
   const scannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto focus scanner input when in REGISTER tab
   useEffect(() => {
     if (activeSubTab === 'REGISTER' && scannerInputRef.current) {
       scannerInputRef.current.focus();
     }
   }, [activeSubTab]);
 
-  // Toast auto-clear
   const showToast = (text: string, type: 'success' | 'warn' | 'info' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3000);
@@ -192,13 +192,11 @@ export const POSView: React.FC = () => {
       const retailPrice = branchItem ? branchItem.retailPricePerKg : prod.pricePerKg;
       const weight = result.weightKg > 0 ? result.weightKg : 1.0;
 
-      // Check stock warning
       const currentStock = branchItem ? branchItem.inStockKg : prod.inStockKg;
       if (currentStock <= 0) {
-        showToast(`ئاگاداری: ستۆکی (${prod.nameKu}) تەواو بووە لە عەمبار!`, 'warn');
+        showToast(`ئاگاداری: ستۆکی (${prod.nameKu}) لە شۆرۆمدا نەماوە!`, 'warn');
       }
 
-      // Add to Cart
       addItemToCart(prod, weight, retailPrice, rawBarcode);
       playPosBeep(rawBarcode.length === 13 ? 'scale' : 'success');
       showToast(`سکان کرا: ${prod.nameKu} (${weight.toFixed(3)} کگم)`, 'success');
@@ -213,7 +211,6 @@ export const POSView: React.FC = () => {
   const addItemToCart = (product: ProductItem, weightKg: number, pricePerKg: number, barcodeStr?: string) => {
     const total = Math.round(weightKg * pricePerKg);
     setCart(prev => {
-      // If same product and not specific scale barcode, accumulate
       const existing = prev.findIndex(item => item.productId === product.id);
       if (existing > -1 && (!barcodeStr || barcodeStr.length < 13)) {
         const updated = [...prev];
@@ -260,13 +257,12 @@ export const POSView: React.FC = () => {
 
   const clearCart = () => {
     if (cart.length === 0) return;
-    if (window.confirm('ئایا دڵنیایت لە بەتاڵکردنەوەی تەواوی سەبەتەکە؟')) {
-      setCart([]);
-      setDiscountAmount(0);
-      setDiscountPercent(0);
-      setCashGiven('');
-      playPosBeep('scale');
-    }
+    setCart([]);
+    setDiscountAmount(0);
+    setDiscountPercent(0);
+    setCashGiven('');
+    playPosBeep('scale');
+    showToast('سەبەتەی فرۆشتن بەتاڵکرایەوە', 'info');
   };
 
   // Cart Calculations
@@ -276,17 +272,10 @@ export const POSView: React.FC = () => {
   const numericCashGiven = parseFloat(cashGiven) || 0;
   const changeDue = numericCashGiven > netTotal ? numericCashGiven - netTotal : 0;
 
-  // Complete POS Sale
   const handleCompleteSale = () => {
     if (cart.length === 0) {
-      alert('تکایە بەرهەم بخەرە ناو سەبەتەی فرۆشتنەوە!');
+      showToast('سەبەتە بەتاڵە! تکایە بەرهەم هەڵبژێرە یان بارکۆد سکان بکە', 'warn');
       return;
-    }
-
-    if (paymentType === 'CASH' && numericCashGiven > 0 && numericCashGiven < netTotal) {
-      if (!window.confirm('بڕی نەقدی دراو کەمترە لە کۆی پارەی وەسڵەکە! ئایا وەکو قەرز تۆمار دەکرێت؟')) {
-        return;
-      }
     }
 
     const sale = addPOSSale({
@@ -309,7 +298,7 @@ export const POSView: React.FC = () => {
     setDiscountAmount(0);
     setDiscountPercent(0);
     setCashGiven('');
-    showToast(`وەسڵی ${sale.saleNo} بە سەرکەوتوویی تەواو کرا!`, 'success');
+    showToast(`وەسڵی ${sale.saleNo} بە سەرکەوتوویی تەواو کرا`, 'success');
   };
 
   // ==========================================
@@ -323,7 +312,7 @@ export const POSView: React.FC = () => {
   const [inboundWeight, setInboundWeight] = useState<string>('50');
   const [inboundFactoryCost, setInboundFactoryCost] = useState<number>(products[0]?.costPerKg || 2800);
   const [inboundDate, setInboundDate] = useState(new Date().toISOString().split('T')[0]);
-  const [inboundNotes, setInboundNotes] = useState('داخلکردنی کۆگای فرۆشگا بە سکانەری بارکۆد');
+  const [inboundNotes, setInboundNotes] = useState('داخلکردنی کۆگای شۆروم بە سکانەری بارکۆد');
 
   const handleInboundBarcodeScan = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -345,7 +334,7 @@ export const POSView: React.FC = () => {
       }
     } else {
       playPosBeep('error');
-      showToast(`بارکۆدی داخڵکردن نەدۆزرایەوە: ${code}`, 'warn');
+      showToast(`بارکۆدی داخڵکردن نەناسراوە: ${code}`, 'warn');
       setInboundBarcode('');
     }
   };
@@ -354,7 +343,7 @@ export const POSView: React.FC = () => {
     if (!inboundSelectedProd) return;
     const weight = parseFloat(inboundWeight);
     if (isNaN(weight) || weight <= 0) {
-      alert('تکایە کێشێکی دروست بە کیلۆگرام بنووسە!');
+      showToast('تکایە کێشێکی دروست بە کیلۆگرام بنووسە', 'warn');
       return;
     }
 
@@ -382,7 +371,7 @@ export const POSView: React.FC = () => {
 
   const commitInboundToWarehouse = () => {
     if (inboundStagingList.length === 0) {
-      alert('تکایە لانیکەم بەرهەمێک داخل بکە پێش تۆمارکردن!');
+      showToast('لیستەکە بەتاڵە! لانیکەم بەرهەمێک زیاد بکە', 'warn');
       return;
     }
 
@@ -401,7 +390,7 @@ export const POSView: React.FC = () => {
     });
 
     playPosBeep('success');
-    showToast(`کۆی ${totalWeightKg.toFixed(1)} کگم کاڵا بە سەرکەوتوویی خرایە سەر کۆگای فرۆشگا!`, 'success');
+    showToast(`کۆی ${totalWeightKg.toFixed(1)} کگم خرایە سەر کۆگای شۆرۆم`, 'success');
     setInboundStagingList([]);
     setInboundReceiptNo(`INB-${Math.floor(1000 + Math.random() * 9000)}`);
   };
@@ -417,15 +406,15 @@ export const POSView: React.FC = () => {
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(expAmount);
-    if (!expTitle || isNaN(amount) || amount <= 0) {
-      alert('تکایە ناوی خەرجی و بڕێکی دروست بنووسە!');
+    if (!expTitle.trim() || isNaN(amount) || amount <= 0) {
+      showToast('تکایە ناوی خەرجی و بڕێکی دروست بنووسە', 'warn');
       return;
     }
 
     addBranchExpense({
       date: new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      title: expTitle,
+      title: expTitle.trim(),
       category: expCategory,
       amount,
       notes: 'تۆمارکراوی خەرجی شۆروم',
@@ -434,174 +423,175 @@ export const POSView: React.FC = () => {
     setExpTitle('');
     setExpAmount('');
     setShowAddExpenseModal(false);
-    showToast('خەرجی شۆروم بە سەرکەوتوویی تۆمارکرا', 'success');
+    showToast('خەرجی شۆروم تۆمارکرا', 'success');
   };
 
-  // Filter Products for Register Touch Grid
+  // Price Update Handler
+  const handleSavePriceEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPriceItem) return;
+    const val = parseFloat(newPriceInput);
+    if (isNaN(val) || val <= 0) {
+      showToast('نرخێکی دروست بنووسە', 'warn');
+      return;
+    }
+    updateBranchStockItem(editingPriceItem.productId, { retailPricePerKg: val });
+    showToast(`نرخی ${editingPriceItem.productName} نوێکرایەوە`, 'success');
+    setEditingPriceItem(null);
+  };
+
   const filteredProducts = products.filter(p => {
     const matchCat = activeCategory === 'ALL' || p.category === activeCategory;
     const matchSearch = p.nameKu.toLowerCase().includes(searchFilter.toLowerCase()) || p.code.includes(searchFilter);
     return matchCat && matchSearch;
   });
 
+  const totalCashSales = posSales.filter(s => s.paymentType === 'CASH').reduce((sum, s) => sum + s.total, 0);
+  const totalAllSales = posSales.reduce((sum, s) => sum + s.total, 0);
+  const totalBranchExpenses = branchExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const netCashInDrawer = totalCashSales - totalBranchExpenses;
+
   return (
-    <div className="space-y-4" dir="rtl">
-      {/* Toast Notification */}
+    <div className="space-y-5">
+      {/* Apple Floating Toast Pill */}
       {toastMessage && (
         <div
-          className={`fixed bottom-6 left-6 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md animate-bounce transition-all ${
+          className={`fixed bottom-6 left-6 z-50 px-5 py-3 rounded-full shadow-lg border apple-glass apple-sheet flex items-center gap-2.5 text-xs font-bold ${
             toastMessage.type === 'success'
-              ? 'bg-emerald-600/95 text-white border-emerald-400'
+              ? 'border-[#34C759]/30 text-[#1D1D1F]'
               : toastMessage.type === 'warn'
-              ? 'bg-amber-600/95 text-white border-amber-400'
-              : 'bg-blue-600/95 text-white border-blue-400'
+              ? 'border-[#FF9500]/40 text-[#B25000]'
+              : 'border-[#0071E3]/30 text-[#0071E3]'
           }`}
         >
-          <Sparkles className="w-5 h-5" />
-          <span className="font-bold text-sm">{toastMessage.text}</span>
+          <span
+            className={`w-2.5 h-2.5 rounded-full ${
+              toastMessage.type === 'success'
+                ? 'bg-[#34C759]'
+                : toastMessage.type === 'warn'
+                ? 'bg-[#FF9500]'
+                : 'bg-[#0071E3]'
+            }`}
+          />
+          <span>{toastMessage.text}</span>
         </div>
       )}
 
-      {/* HEADER & MAIN SUB-TABS */}
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <ShoppingBag className="w-6 h-6" />
+      {/* APPLE HEADER & SEGMENTED CONTROL */}
+      <div className="apple-card p-4 md:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-[#0071E3] text-white flex items-center justify-center shadow-sm shadow-[#0071E3]/30 shrink-0">
+            <ShoppingBag className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900 dark:text-white">فرۆشگای تایبەت (شۆرۆم - POS)</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                سیستەمی بارکۆدی تەرازوو
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
+                فرۆشگای تایبەت (شۆرۆم - POS)
+              </h2>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#34C759]/12 text-[#248A3D]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] animate-pulse" />
+                بارکۆد و تەرازوو ئامادەیە
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              فرۆشتنی ڕاستەوخۆ بە بارکۆد، داخلکردنی کۆگای شۆروم، و ژمێرەری سەندوق
+            <p className="text-xs text-[#86868B] mt-0.5">
+              کاشێری ڕاستەوخۆ بە سکانەر، داخلکردنی کۆگا بە بارکۆد، وەسڵی 80mm و ژمێرەری سەندوق
             </p>
           </div>
         </div>
 
-        {/* Sub-Tabs Selector */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+        {/* Apple Segmented Control */}
+        <div className="apple-segmented overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveSubTab('REGISTER')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'REGISTER'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+            className={`apple-segment-btn flex items-center gap-1.5 ${
+              activeSubTab === 'REGISTER' ? 'apple-segment-btn-active' : ''
             }`}
           >
-            <Barcode className="w-4 h-4" />
-            فرۆشتنی خێرا (کاشێر)
+            <Barcode className="w-3.5 h-3.5 text-[#0071E3]" />
+            <span>کاشێر و فرۆشتن</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('INBOUND')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'INBOUND'
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+            className={`apple-segment-btn flex items-center gap-1.5 ${
+              activeSubTab === 'INBOUND' ? 'apple-segment-btn-active' : ''
             }`}
           >
-            <ArrowDownToLine className="w-4 h-4" />
-            داخلکردنی کۆگا بە بارکۆد
+            <ArrowDownToLine className="w-3.5 h-3.5 text-[#5856D6]" />
+            <span>داخلکردنی کۆگا بە بارکۆد</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('INVENTORY')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'INVENTORY'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+            className={`apple-segment-btn flex items-center gap-1.5 ${
+              activeSubTab === 'INVENTORY' ? 'apple-segment-btn-active' : ''
             }`}
           >
-            <Boxes className="w-4 h-4" />
-            کۆگای فرۆشگا ({branchStock.length})
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('HISTORY')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'HISTORY'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Receipt className="w-4 h-4" />
-            مێژووی وەسڵەکان ({posSales.length})
+            <Boxes className="w-3.5 h-3.5 text-[#34C759]" />
+            <span>کۆگای شۆرۆم ({branchStock.length})</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('REGISTER_REPORT')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all ${
-              activeSubTab === 'REGISTER_REPORT'
-                ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+            className={`apple-segment-btn flex items-center gap-1.5 ${
+              activeSubTab === 'REGISTER_REPORT' ? 'apple-segment-btn-active' : ''
             }`}
           >
-            <TrendingUp className="w-4 h-4" />
-            سەندوق و خەرجی
+            <TrendingUp className="w-3.5 h-3.5 text-[#FF9500]" />
+            <span>مێژوو، سەندوق و خەرجی ({posSales.length})</span>
           </button>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB 1: POS REGISTER (فرۆشتنی ڕاستەوخۆ بە بارکۆد و تاچ) */}
+      {/* TAB 1: APPLE POS REGISTER (فرۆشتنی خێرا بە بارکۆد و تاچ) */}
       {/* ========================================================================= */}
       {activeSubTab === 'REGISTER' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* LEFT 7 COLS: BARCODE SCANNER + TOUCH MENU */}
+          {/* RIGHT/MAIN SIDE (7 cols): SCANNER + TOUCH GRID */}
           <div className="lg:col-span-7 space-y-4">
-            {/* ULTRA-RESPONSIVE BARCODE SCANNER BOX */}
-            <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white p-4 rounded-3xl shadow-xl relative overflow-hidden border border-emerald-600/40">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-xs font-black tracking-wider uppercase text-emerald-200">
-                    سکانەری بارکۆد ئامادەیە (Ready to Scan)
-                  </span>
+            {/* Apple Frosted Barcode Input Card */}
+            <div className="apple-card p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 font-bold text-[#1D1D1F]">
+                  <span className="w-2 h-2 rounded-full bg-[#34C759]" />
+                  <span>سکانەری بارکۆد کارایە (USB / Wireless)</span>
                 </div>
-                <span className="text-xs text-emerald-300/80 font-mono">تەرازووی EAN-13 یان بارکۆدی ئاسایی</span>
+                <span className="text-[11px] font-mono text-[#86868B]">EAN-13 Scale & Direct Code</span>
               </div>
 
               <form onSubmit={handleBarcodeSubmit} className="relative flex items-center">
+                <Barcode className="w-5 h-5 text-[#0071E3] absolute right-3.5 pointer-events-none" />
                 <input
                   ref={scannerInputRef}
                   type="text"
                   value={scannerInput}
                   onChange={e => setScannerInput(e.target.value)}
                   placeholder="سکانەر لێرە لێبدە یان بارکۆد بنووسە و Enter داگرە..."
-                  className="w-full pl-28 pr-12 py-3.5 bg-black/40 border-2 border-emerald-400/60 focus:border-emerald-300 text-white rounded-2xl text-base font-mono font-bold tracking-wide placeholder-emerald-300/40 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 shadow-inner"
+                  className="apple-input w-full pr-11 pl-24 py-3 text-sm font-mono font-bold tabular-nums"
                   autoFocus
                 />
-                <Barcode className="w-6 h-6 text-emerald-300 absolute right-4 pointer-events-none" />
                 <button
                   type="submit"
-                  className="absolute left-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md active:scale-95"
+                  className="absolute left-1.5 px-4 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-semibold rounded-xl text-xs transition-all active:scale-95"
                 >
-                  تۆمار (Enter)
+                  تۆمارکردن
                 </button>
               </form>
 
-              {/* Fast barcode test buttons for quick click/test */}
-              <div className="mt-3 pt-3 border-t border-emerald-800/60 flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-emerald-300/80 font-bold">نموونەی کێشی تەرازوو:</span>
+              {/* Quick Test Scale Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                <span className="text-[#86868B] font-medium ml-1">تاقیکردنەوەی خێرای بارکۆد:</span>
                 <button
                   type="button"
                   onClick={() => {
-                    setScannerInput('2100101018503');
-                    setTimeout(() => {
-                      addItemToCart(products[0], 1.85, 3500, '2100101018503');
-                      playPosBeep('scale');
-                      showToast('تەرازوو: مریشکی تەواو (1.850 کگم) زیادکرا', 'success');
-                      setScannerInput('');
-                    }, 50);
+                    addItemToCart(products[0], 1.85, 3500, '2100101018503');
+                    playPosBeep('scale');
+                    showToast('سکان: مریشکی تەواو (1.850 کگم)', 'success');
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-200 border border-emerald-700 text-xs font-mono transition-all"
+                  className="px-2.5 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-mono font-medium transition-colors"
                 >
-                  مریشک (1.85 کگم)
+                  مریشک • 1.85 کگم
                 </button>
                 <button
                   type="button"
@@ -609,11 +599,11 @@ export const POSView: React.FC = () => {
                     const prod = products.find(p => p.id === 'prod-2') || products[1];
                     addItemToCart(prod, 1.25, 6500, '2100102012508');
                     playPosBeep('scale');
-                    showToast('تەرازوو: سنگی بێ ئێسک (1.250 کگم) زیادکرا', 'success');
+                    showToast('سکان: سنگی بێ ئێسک (1.250 کگم)', 'success');
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-200 border border-emerald-700 text-xs font-mono transition-all"
+                  className="px-2.5 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-mono font-medium transition-colors"
                 >
-                  سنگ (1.25 کگم)
+                  سنگ • 1.25 کگم
                 </button>
                 <button
                   type="button"
@@ -621,36 +611,35 @@ export const POSView: React.FC = () => {
                     const prod = products.find(p => p.id === 'prod-3') || products[2];
                     addItemToCart(prod, 2.0, 4200, '2100103020005');
                     playPosBeep('scale');
-                    showToast('تەرازوو: ڕانی مریشک (2.000 کگم) زیادکرا', 'success');
+                    showToast('سکان: ڕانی مریشک (2.000 کگم)', 'success');
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-200 border border-emerald-700 text-xs font-mono transition-all"
+                  className="px-2.5 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-mono font-medium transition-colors"
                 >
-                  ڕان (2.00 کگم)
+                  ڕان • 2.00 کگم
                 </button>
               </div>
             </div>
 
-            {/* PRODUCT CATEGORIES & SEARCH */}
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                {/* Category Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1">
+            {/* Category Pills + Touch Grid */}
+            <div className="apple-card p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                   {[
-                    { id: 'ALL', name: 'هەموو بەرهەمەکان' },
+                    { id: 'ALL', name: 'هەموو' },
                     { id: 'WHOLE_CHICKEN', name: 'مریشکی تەواو' },
                     { id: 'BREAST', name: 'سنگ' },
                     { id: 'THIGH', name: 'ڕان' },
                     { id: 'WINGS', name: 'باڵ و مل' },
                     { id: 'GIBLET', name: 'جگەر و قەسیل' },
-                    { id: 'BONES_SCRAP', name: 'ئێسک و شلمک' },
+                    { id: 'BONES_SCRAP', name: 'ئێسک' },
                   ].map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition-all ${
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                         activeCategory === cat.id
-                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                          ? 'bg-[#1D1D1F] text-white shadow-xs'
+                          : 'bg-[#F5F5F7] text-[#515154] hover:bg-[#E8E8ED]'
                       }`}
                     >
                       {cat.name}
@@ -658,20 +647,19 @@ export const POSView: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Quick Search */}
-                <div className="relative w-full sm:w-48 flex-shrink-0">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                <div className="relative w-full sm:w-44 shrink-0">
+                  <Search className="w-3.5 h-3.5 text-[#86868B] absolute right-3 top-2.5" />
                   <input
                     type="text"
                     value={searchFilter}
                     onChange={e => setSearchFilter(e.target.value)}
                     placeholder="گەڕان..."
-                    className="w-full pr-9 pl-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                    className="apple-input w-full pr-8 pl-3 py-1.5 text-xs"
                   />
                 </div>
               </div>
 
-              {/* TOUCH TILES GRID */}
+              {/* Product Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {filteredProducts.map(product => {
                   const branchItem = branchStock.find(b => b.productId === product.id);
@@ -679,130 +667,126 @@ export const POSView: React.FC = () => {
                   const price = branchItem ? branchItem.retailPricePerKg : product.pricePerKg;
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={product.id}
                       onClick={() => {
                         setWeightModalProduct(product);
                         setWeightKeypadValue('1.000');
                         playPosBeep('scale');
                       }}
-                      className="group cursor-pointer p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 dark:bg-slate-800/60 dark:hover:bg-emerald-950/20 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all shadow-sm active:scale-95 flex flex-col justify-between min-h-[110px]"
+                      className="text-right p-3.5 rounded-2xl bg-[#F5F5F7]/70 hover:bg-white border border-black/[0.05] hover:border-[#0071E3]/40 hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between min-h-[108px] group"
                     >
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                            کۆد: {product.code}
+                      <div className="w-full space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white text-[#515154] border border-black/[0.05]">
+                            #{product.code}
                           </span>
                           <span
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums ${
                               inStock > 20
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                : inStock > 5
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                                ? 'bg-[#34C759]/12 text-[#248A3D]'
+                                : inStock > 0
+                                ? 'bg-[#FF9500]/12 text-[#B25000]'
+                                : 'bg-[#FF3B30]/12 text-[#D70015]'
                             }`}
                           >
-                            ستۆک: {inStock.toFixed(1)} کگم
+                            {inStock.toFixed(1)} کگم
                           </span>
                         </div>
-                        <h4 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors line-clamp-1">
+                        <h4 className="font-bold text-xs text-[#1D1D1F] group-hover:text-[#0071E3] transition-colors line-clamp-2">
                           {product.nameKu}
                         </h4>
                       </div>
 
-                      <div className="flex items-end justify-between mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                        <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
-                          {price.toLocaleString()} <span className="text-[10px]">د.ع/کگم</span>
+                      <div className="w-full flex items-center justify-between pt-2 mt-2 border-t border-black/[0.05]">
+                        <span className="text-xs font-extrabold text-[#0071E3] tabular-nums">
+                          {price.toLocaleString()} <span className="text-[10px] font-medium text-[#86868B]">د.ع</span>
                         </span>
-                        <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
+                        <span className="w-6 h-6 rounded-full bg-white group-hover:bg-[#0071E3] text-[#86868B] group-hover:text-white flex items-center justify-center transition-colors shadow-2xs">
                           <Scale className="w-3.5 h-3.5" />
-                        </div>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </div>
 
-          {/* RIGHT 5 COLS: ACTIVE SHOPPING CART & CHECKOUT REGISTER */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border-2 border-emerald-500/30 dark:border-emerald-500/20 shadow-xl flex flex-col min-h-[580px] justify-between">
+          {/* LEFT SIDE (5 cols): APPLE CART & CHECKOUT */}
+          <div className="lg:col-span-5">
+            <div className="apple-card p-5 flex flex-col justify-between min-h-[560px]">
               {/* Cart Header */}
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold">
+                <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-full bg-[#0071E3] text-white font-bold text-xs flex items-center justify-center tabular-nums">
                       {cart.length}
-                    </div>
+                    </span>
                     <div>
-                      <h3 className="font-black text-base text-slate-900 dark:text-white">سەبەتەی فرۆشتن</h3>
-                      <p className="text-[10px] text-slate-400">کاشێر: {currentUser?.name || 'ئاراس ئەحمەد'}</p>
+                      <h3 className="font-extrabold text-sm text-[#1D1D1F]">سەبەتەی فرۆشتن</h3>
+                      <p className="text-[10px] text-[#86868B]">کاشێر: {currentUser?.name}</p>
                     </div>
                   </div>
 
                   {cart.length > 0 && (
                     <button
                       onClick={clearCart}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
-                      title="بەتاڵکردنی سەبەتە (F4)"
+                      className="px-2.5 py-1 rounded-full text-[#FF3B30] hover:bg-[#FF3B30]/10 text-xs font-semibold transition-colors flex items-center gap-1"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      سڕینەوە
+                      <Trash2 className="w-3.5 h-3.5" />
+                      پاککردنەوە
                     </button>
                   )}
                 </div>
 
-                {/* Cart Items List */}
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[260px] overflow-y-auto mt-2 pr-1">
+                {/* Cart Items */}
+                <div className="divide-y divide-black/[0.05] max-h-[250px] overflow-y-auto my-2">
                   {cart.length === 0 ? (
-                    <div className="py-12 text-center text-slate-400">
-                      <Barcode className="w-12 h-12 mx-auto mb-2 opacity-30 animate-pulse text-emerald-500" />
-                      <p className="font-bold text-sm">سەبەتە بەتاڵە</p>
-                      <p className="text-xs mt-1">بارکۆد سکان بکە یان بەرهەم هەڵبژێرە لە شاشەکە</p>
+                    <div className="py-14 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-[#F5F5F7] text-[#86868B] flex items-center justify-center mx-auto">
+                        <Barcode className="w-6 h-6" />
+                      </div>
+                      <p className="font-bold text-xs text-[#1D1D1F]">سەبەتە بەتاڵە</p>
+                      <p className="text-[11px] text-[#86868B]">بارکۆد سکان بکە یان بەرهەم هەڵبژێرە</p>
                     </div>
                   ) : (
                     cart.map((item, idx) => (
                       <div key={idx} className="py-2.5 flex items-center justify-between gap-2 group">
                         <div className="flex-1 min-w-0">
-                          <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 truncate">
-                            {item.productName}
-                          </h5>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                            <span>{item.pricePerKg.toLocaleString()} د.ع/کگم</span>
-                            {item.barcode && <span>• بارکۆد: {item.barcode}</span>}
+                          <h5 className="text-xs font-bold text-[#1D1D1F] truncate">{item.productName}</h5>
+                          <div className="text-[10px] text-[#86868B] tabular-nums">
+                            {item.pricePerKg.toLocaleString()} د.ع / کگم
                           </div>
                         </div>
 
-                        {/* Weight Adjuster */}
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                        {/* Apple Pill Stepper */}
+                        <div className="flex items-center gap-1 bg-[#F5F5F7] p-0.5 rounded-full border border-black/[0.04]">
                           <button
                             onClick={() => updateCartItemWeight(idx, -0.25)}
-                            className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold flex items-center justify-center hover:bg-rose-100 dark:hover:bg-rose-950 text-xs transition-colors"
+                            className="w-6 h-6 rounded-full bg-white text-[#1D1D1F] font-bold text-xs flex items-center justify-center hover:bg-[#FF3B30] hover:text-white transition-colors shadow-2xs"
                           >
                             -
                           </button>
-                          <span className="w-14 text-center font-mono font-black text-xs text-slate-900 dark:text-white">
+                          <span className="w-14 text-center font-bold text-xs tabular-nums text-[#1D1D1F]">
                             {item.weightKg.toFixed(3)}
                           </span>
                           <button
                             onClick={() => updateCartItemWeight(idx, 0.25)}
-                            className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-950 text-xs transition-colors"
+                            className="w-6 h-6 rounded-full bg-white text-[#1D1D1F] font-bold text-xs flex items-center justify-center hover:bg-[#34C759] hover:text-white transition-colors shadow-2xs"
                           >
                             +
                           </button>
                         </div>
 
-                        {/* Item Total & Delete */}
-                        <div className="text-left w-20">
-                          <div className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">
-                            {item.total.toLocaleString()} د.ع
-                          </div>
+                        <div className="text-left w-20 font-extrabold text-xs text-[#0071E3] tabular-nums">
+                          {item.total.toLocaleString()} د.ع
                         </div>
 
                         <button
                           onClick={() => removeCartItem(idx)}
-                          className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity p-1"
+                          className="text-[#86868B] hover:text-[#FF3B30] p-1 transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -812,100 +796,90 @@ export const POSView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Checkout Calculation & Pay Section */}
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                {/* Customer Name */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500 whitespace-nowrap">کڕیار:</span>
+              {/* Summary & Payment Controls */}
+              <div className="pt-3 border-t border-black/[0.06] space-y-3">
+                {/* Customer & Discount */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
                   <input
                     type="text"
                     value={customerNameInput}
                     onChange={e => setCustomerNameInput(e.target.value)}
                     placeholder="ناوی کڕیار..."
-                    className="flex-1 px-3 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+                    className="apple-input px-3 py-1.5 text-xs font-medium"
                   />
-                </div>
-
-                {/* Subtotal & Discount row */}
-                <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                  <span>کۆی کاڵاکان:</span>
-                  <span className="font-mono text-slate-900 dark:text-white">{subtotal.toLocaleString()} د.ع</span>
-                </div>
-
-                {/* Discount controls */}
-                <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-600 dark:text-slate-300">
-                    <Percent className="w-3.5 h-3.5 text-amber-500" />
-                    <span>داشکاندن (خصم):</span>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-[#F5F5F7] border border-black/[0.06] rounded-xl px-2">
+                    <Percent className="w-3.5 h-3.5 text-[#FF9500] shrink-0" />
                     <input
                       type="number"
-                      placeholder="بڕ د.ع"
+                      placeholder="داشکاندن د.ع"
                       value={discountAmount || ''}
                       onChange={e => {
                         setDiscountAmount(parseFloat(e.target.value) || 0);
                         setDiscountPercent(0);
                       }}
-                      className="w-20 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-mono text-left focus:outline-none"
+                      className="bg-transparent w-full py-1.5 text-xs font-semibold outline-none tabular-nums"
                     />
-                    <span className="text-slate-400">یان</span>
-                    <div className="flex items-center gap-1">
-                      {[5, 10].map(pct => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => {
-                            setDiscountPercent(pct);
-                            setDiscountAmount(0);
-                          }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            discountPercent === pct
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          {pct}%
-                        </button>
-                      ))}
-                    </div>
+                    {[5, 10].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          setDiscountPercent(discountPercent === pct ? 0 : pct);
+                          setDiscountAmount(0);
+                        }}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-colors ${
+                          discountPercent === pct
+                            ? 'bg-[#FF9500] text-white'
+                            : 'bg-white text-[#515154]'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* NET PAYABLE AMOUNT (HUGE) */}
-                <div className="p-3.5 rounded-2xl bg-slate-900 dark:bg-black text-white flex items-center justify-between shadow-lg">
+                {/* Net Payable Apple Surface */}
+                <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-black/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <span className="text-xs font-bold text-slate-400">کۆی گشتی بۆ دان:</span>
-                    <div className="text-2xl font-black font-mono tracking-tight text-emerald-400">
-                      {netTotal.toLocaleString()}{' '}
-                      <span className="text-xs font-normal text-slate-400">دینار</span>
+                    <div className="text-[11px] font-semibold text-[#86868B] flex items-center gap-2">
+                      <span>کۆی گشتی بۆ دان</span>
+                      {calculatedDiscount > 0 && (
+                        <span className="text-[#FF9500] font-bold">(-{calculatedDiscount.toLocaleString()})</span>
+                      )}
+                    </div>
+                    <div className="text-2xl font-black text-[#1D1D1F] tabular-nums tracking-tight">
+                      {netTotal.toLocaleString()} <span className="text-xs font-semibold text-[#86868B]">د.ع</span>
                     </div>
                   </div>
 
-                  {/* Payment Type Switcher */}
-                  <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl">
+                  {/* Apple Payment Segmented Control */}
+                  <div className="apple-segmented">
                     <button
+                      type="button"
                       onClick={() => setPaymentType('CASH')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all ${
-                        paymentType === 'CASH' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      className={`apple-segment-btn !px-2.5 !py-1.5 text-[11px] flex items-center gap-1 ${
+                        paymentType === 'CASH' ? 'apple-segment-btn-active !text-[#248A3D]' : ''
                       }`}
                     >
                       <Banknote className="w-3.5 h-3.5" />
                       نەقد
                     </button>
                     <button
+                      type="button"
                       onClick={() => setPaymentType('FIB_OR_CARD')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all ${
-                        paymentType === 'FIB_OR_CARD' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      className={`apple-segment-btn !px-2.5 !py-1.5 text-[11px] flex items-center gap-1 ${
+                        paymentType === 'FIB_OR_CARD' ? 'apple-segment-btn-active !text-[#0071E3]' : ''
                       }`}
                     >
                       <CreditCard className="w-3.5 h-3.5" />
                       کارت
                     </button>
                     <button
+                      type="button"
                       onClick={() => setPaymentType('DEBT')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-black flex items-center gap-1 transition-all ${
-                        paymentType === 'DEBT' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      className={`apple-segment-btn !px-2.5 !py-1.5 text-[11px] ${
+                        paymentType === 'DEBT' ? 'apple-segment-btn-active !text-[#D70015]' : ''
                       }`}
                     >
                       قەرز
@@ -913,36 +887,37 @@ export const POSView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Cash Paid & Return Change Calculator (Only for Cash) */}
+                {/* Cash Paid & Change Return */}
                 {paymentType === 'CASH' && (
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs">
+                  <div className="grid grid-cols-2 gap-2.5 p-3 rounded-2xl bg-[#34C759]/8 border border-[#34C759]/20 text-xs">
                     <div>
-                      <span className="text-slate-500 font-bold block mb-1">پارەی وەرگیراو:</span>
+                      <span className="text-[#515154] font-semibold block mb-1">پارەی وەرگیراو:</span>
                       <input
                         type="number"
                         value={cashGiven}
                         onChange={e => setCashGiven(e.target.value)}
-                        placeholder="نموونە: 25000"
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 rounded-xl font-mono font-bold text-sm text-slate-900 dark:text-white focus:outline-none"
+                        placeholder={netTotal > 0 ? netTotal.toString() : '25000'}
+                        className="w-full px-3 py-1.5 bg-white border border-black/[0.08] rounded-xl font-bold text-sm text-[#1D1D1F] tabular-nums outline-none focus:border-[#34C759]"
                       />
                     </div>
                     <div>
-                      <span className="text-slate-500 font-bold block mb-1">پارەی گەڕاوە (باقی):</span>
-                      <div className="font-mono font-black text-base text-emerald-700 dark:text-emerald-300 py-1">
+                      <span className="text-[#515154] font-semibold block mb-1">پارەی گەڕاوە (باقی):</span>
+                      <div className="font-extrabold text-base text-[#248A3D] tabular-nums py-1">
                         {changeDue > 0 ? `${changeDue.toLocaleString()} د.ع` : '٠ د.ع'}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* COMPLETE SALE BUTTON */}
+                {/* Complete Sale Apple Pill Button */}
                 <button
+                  type="button"
                   onClick={handleCompleteSale}
                   disabled={cart.length === 0}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-base shadow-xl shadow-emerald-600/30 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-2xl bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-sm shadow-sm shadow-[#0071E3]/30 active:scale-[0.985] transition-all disabled:opacity-45 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <Printer className="w-5 h-5" />
-                  <span>تەواوکردن و چاپکردنی وەسڵ (F8 / Enter)</span>
+                  <Printer className="w-4 h-4" />
+                  <span>تەواوکردن و چاپکردنی وەسڵ (80mm)</span>
                 </button>
               </div>
             </div>
@@ -951,200 +926,183 @@ export const POSView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: INBOUND WAREHOUSE BY BARCODE (داخلکردنی کۆگا بە سکانەری بارکۆد) */}
+      {/* TAB 2: WAREHOUSE INBOUND BY BARCODE (داخلکردنی کۆگا بە سکانەری بارکۆد) */}
       {/* ========================================================================= */}
       {activeSubTab === 'INBOUND' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Inbound Intake Console */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center">
-                  <ArrowDownToLine className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-900 dark:text-white">داخلکردنی باری نوێ بۆ کۆگا</h3>
-                  <p className="text-xs text-slate-500">بە سکانەری بارکۆد یان بە پێی وەسڵی دەستی کارگە</p>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Inbound Form Card */}
+          <div className="lg:col-span-5 apple-card p-5 space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-black/[0.06]">
+              <div className="w-10 h-10 rounded-2xl bg-[#5856D6]/12 text-[#5856D6] flex items-center justify-center">
+                <ArrowDownToLine className="w-5 h-5" />
               </div>
-
-              {/* BARCODE SCANNER FOR INBOUND */}
-              <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-2 border border-blue-500/30">
-                <div className="flex items-center justify-between text-xs text-blue-300 font-bold">
-                  <span>سکانەری بارکۆدی کارتۆن / کاڵا</span>
-                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
-                </div>
-                <form onSubmit={handleInboundBarcodeScan} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={inboundBarcode}
-                    onChange={e => setInboundBarcode(e.target.value)}
-                    placeholder="بارکۆدی بەرهەم لێبدە..."
-                    className="flex-1 px-3 py-2 bg-slate-800 border border-blue-400/50 rounded-xl font-mono text-sm text-white focus:outline-none focus:border-blue-300"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs"
-                  >
-                    پشکنین
-                  </button>
-                </form>
-              </div>
-
-              {/* Delivery Metadata */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">ژ. وەسڵی دەستی کارگە:</label>
-                  <input
-                    type="text"
-                    value={inboundReceiptNo}
-                    onChange={e => setInboundReceiptNo(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">بەروار:</label>
-                  <input
-                    type="date"
-                    value={inboundDate}
-                    onChange={e => setInboundDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="font-bold text-xs text-slate-600 dark:text-slate-300 block mb-1">مەندوب / هێنەر:</label>
+                <h3 className="font-extrabold text-sm text-[#1D1D1F]">داخلکردنی بار بۆ کۆگا بە بارکۆد</h3>
+                <p className="text-[11px] text-[#86868B]">سکانکردنی کارتۆن/کاڵا یان تۆمار بە وەسڵی دەستی</p>
+              </div>
+            </div>
+
+            {/* Barcode Scanner Input */}
+            <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-[#5856D6]/20 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#5856D6]">
+                <span>سکانەری بارکۆدی هاتوو</span>
+                <span className="w-2 h-2 rounded-full bg-[#34C759] animate-pulse" />
+              </div>
+              <form onSubmit={handleInboundBarcodeScan} className="flex gap-2">
                 <input
                   type="text"
-                  value={inboundRepName}
-                  onChange={e => setInboundRepName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs"
+                  value={inboundBarcode}
+                  onChange={e => setInboundBarcode(e.target.value)}
+                  placeholder="بارکۆد لێبدە..."
+                  className="apple-input bg-white flex-1 px-3 py-2 text-xs font-mono font-bold"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#5856D6] hover:bg-[#4B49B6] text-white font-bold rounded-xl text-xs transition-colors"
+                >
+                  پشکنین
+                </button>
+              </form>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="font-semibold text-[#515154] block mb-1">ژ. وەسڵی دەستی:</label>
+                <input
+                  type="text"
+                  value={inboundReceiptNo}
+                  onChange={e => setInboundReceiptNo(e.target.value)}
+                  className="apple-input w-full px-3 py-2 font-mono font-bold text-xs"
                 />
               </div>
-
-              {/* Product Select & Weight */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">بەرهەمی هاتوو:</span>
-                  <select
-                    value={inboundSelectedProd?.id}
-                    onChange={e => {
-                      const found = products.find(p => p.id === e.target.value);
-                      if (found) {
-                        setInboundSelectedProd(found);
-                        setInboundFactoryCost(found.costPerKg);
-                      }
-                    }}
-                    className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-bold text-xs"
-                  >
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.nameKu} (کۆد: {p.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">کێشی هاتوو (کگم):</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={inboundWeight}
-                      onChange={e => setInboundWeight(e.target.value)}
-                      placeholder="50"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-mono font-bold text-base text-blue-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">تێچووی کارگە (د.ع/کگم):</label>
-                    <input
-                      type="number"
-                      value={inboundFactoryCost}
-                      onChange={e => setInboundFactoryCost(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-mono font-bold text-sm"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addStagedInboundItem}
-                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98"
-                >
-                  <Plus className="w-4 h-4" />
-                  زیادکردن بۆ لیستی ئەم وەجبەیە
-                </button>
-              </div>
-
               <div>
-                <label className="font-bold text-xs text-slate-600 dark:text-slate-300 block mb-1">تێبینی:</label>
+                <label className="font-semibold text-[#515154] block mb-1">بەروار:</label>
                 <input
-                  type="text"
-                  value={inboundNotes}
-                  onChange={e => setInboundNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
+                  type="date"
+                  value={inboundDate}
+                  onChange={e => setInboundDate(e.target.value)}
+                  className="apple-input w-full px-3 py-2 font-medium text-xs"
                 />
               </div>
             </div>
+
+            <div className="text-xs">
+              <label className="font-semibold text-[#515154] block mb-1">مەندوب / هێنەر:</label>
+              <input
+                type="text"
+                value={inboundRepName}
+                onChange={e => setInboundRepName(e.target.value)}
+                className="apple-input w-full px-3 py-2 font-medium text-xs"
+              />
+            </div>
+
+            {/* Item Selection */}
+            <div className="p-3.5 rounded-2xl bg-[#F5F5F7] border border-black/[0.05] space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-[#515154] block mb-1">بەرهەم:</label>
+                <select
+                  value={inboundSelectedProd?.id}
+                  onChange={e => {
+                    const found = products.find(p => p.id === e.target.value);
+                    if (found) {
+                      setInboundSelectedProd(found);
+                      setInboundFactoryCost(found.costPerKg);
+                    }
+                  }}
+                  className="apple-input bg-white w-full px-3 py-2 font-bold text-xs"
+                >
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nameKu} (#{p.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-[#515154] block mb-1">کێشی هاتوو (کگم):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={inboundWeight}
+                    onChange={e => setInboundWeight(e.target.value)}
+                    className="apple-input bg-white w-full px-3 py-2 font-extrabold text-sm text-[#0071E3] tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-[#515154] block mb-1">تێچووی کارگە (د.ع):</label>
+                  <input
+                    type="number"
+                    value={inboundFactoryCost}
+                    onChange={e => setInboundFactoryCost(parseFloat(e.target.value) || 0)}
+                    className="apple-input bg-white w-full px-3 py-2 font-bold text-xs tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={addStagedInboundItem}
+                className="w-full py-2.5 rounded-xl bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.985]"
+              >
+                <Plus className="w-4 h-4" />
+                زیادکردن بۆ لیستی هاتوو
+              </button>
+            </div>
           </div>
 
-          {/* Staging Manifest & Final Commit */}
+          {/* Staging List & History */}
           <div className="lg:col-span-7 space-y-4">
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between min-h-[500px]">
+            <div className="apple-card p-5 flex flex-col justify-between min-h-[380px]">
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
                   <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 font-bold flex items-center justify-center text-xs">
+                    <span className="w-6 h-6 rounded-full bg-[#5856D6]/12 text-[#5856D6] font-bold flex items-center justify-center text-xs tabular-nums">
                       {inboundStagingList.length}
                     </span>
-                    <h4 className="font-black text-base text-slate-900 dark:text-white">
-                      پێداچوونەوەی وەجبەی وەرگیراو
-                    </h4>
+                    <h4 className="font-extrabold text-sm text-[#1D1D1F]">پێداچوونەوەی وەجبەی وەرگیراو</h4>
                   </div>
-                  <span className="text-xs font-mono text-slate-500">وەسڵ: {inboundReceiptNo}</span>
+                  <span className="text-xs font-mono text-[#86868B]">وەسڵ: {inboundReceiptNo}</span>
                 </div>
 
-                {/* Staging Table */}
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold">
+                      <tr className="border-b border-black/[0.06] text-[#86868B] font-semibold">
                         <th className="py-2">بەرهەم</th>
                         <th className="py-2 text-center">کێش (کگم)</th>
-                        <th className="py-2 text-center">تێچوو/کگم</th>
-                        <th className="py-2 text-left">کۆی تێچوو</th>
-                        <th className="py-2 text-center">کردار</th>
+                        <th className="py-2 text-center">تێچوو</th>
+                        <th className="py-2 text-left">کۆ</th>
+                        <th className="py-2 text-center">لابردن</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-black/[0.04]">
                       {inboundStagingList.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-12 text-center text-slate-400">
-                            هێشتا هیچ کاڵایەک زیاد نەکراوە بۆ ئەم وەجبەیە. بارکۆد سکان بکە یان بەرهەم زیاد بکە.
+                          <td colSpan={5} className="py-12 text-center text-[#86868B]">
+                            هێشتا هیچ کاڵایەک زیاد نەکراوە. بارکۆد سکان بکە یان بەرهەم زیاد بکە.
                           </td>
                         </tr>
                       ) : (
                         inboundStagingList.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td className="py-2.5 font-bold text-slate-900 dark:text-white">{item.productName}</td>
-                            <td className="py-2.5 text-center font-mono font-black text-blue-600">
+                          <tr key={idx}>
+                            <td className="py-2.5 font-bold text-[#1D1D1F]">{item.productName}</td>
+                            <td className="py-2.5 text-center font-bold text-[#0071E3] tabular-nums">
                               {item.weightKg.toFixed(2)} کگم
                             </td>
-                            <td className="py-2.5 text-center font-mono">
+                            <td className="py-2.5 text-center tabular-nums text-[#515154]">
                               {item.factoryPricePerKg.toLocaleString()} د.ع
                             </td>
-                            <td className="py-2.5 text-left font-mono font-bold text-slate-800 dark:text-slate-200">
+                            <td className="py-2.5 text-left font-bold tabular-nums text-[#1D1D1F]">
                               {item.totalCost.toLocaleString()} د.ع
                             </td>
                             <td className="py-2.5 text-center">
                               <button
                                 onClick={() => removeStagedInboundItem(idx)}
-                                className="text-rose-500 hover:text-rose-700 p-1"
+                                className="text-[#86868B] hover:text-[#FF3B30] p-1"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </td>
                           </tr>
@@ -1155,52 +1113,51 @@ export const POSView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Total & Commit Button */}
               {inboundStagingList.length > 0 && (
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-sm font-bold">
-                    <span>کۆی کێشی وەجبە:</span>
-                    <span className="font-mono text-base font-black text-blue-600 dark:text-blue-400">
+                <div className="pt-4 border-t border-black/[0.06] space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-[#F5F5F7] text-xs font-bold">
+                    <span className="text-[#515154]">کۆی کێشی وەجبە:</span>
+                    <span className="text-sm font-extrabold text-[#0071E3] tabular-nums">
                       {inboundStagingList.reduce((sum, item) => sum + item.weightKg, 0).toFixed(2)} کگم
                     </span>
-                    <span>کۆی بەهای کارگە:</span>
-                    <span className="font-mono text-base font-black text-slate-900 dark:text-white">
+                    <span className="text-[#515154]">کۆی بەها:</span>
+                    <span className="text-sm font-extrabold text-[#1D1D1F] tabular-nums">
                       {inboundStagingList.reduce((sum, item) => sum + item.totalCost, 0).toLocaleString()} د.ع
                     </span>
                   </div>
 
                   <button
                     onClick={commitInboundToWarehouse}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3.5 rounded-2xl bg-[#34C759] hover:bg-[#2EB850] text-white font-bold text-sm shadow-sm active:scale-[0.985] transition-all flex items-center justify-center gap-2"
                   >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>تۆمارکردن و زیادکردن بۆ کۆگای فرۆشگا</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>تۆمارکردن و زیادکردن بۆ کۆگای شۆرۆم</span>
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Inbound History Log */}
-            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-              <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <Truck className="w-4 h-4 text-blue-600" />
-                مێژووی هاتنی بار لە کارگەوە بۆ فرۆشگا
+            {/* Inbound History Card */}
+            <div className="apple-card p-5 space-y-3">
+              <h4 className="font-extrabold text-xs text-[#1D1D1F] flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#0071E3]" />
+                مێژووی هاتنی بار لە کارگەوە بۆ شۆرۆم
               </h4>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-48 overflow-y-auto pr-1">
+              <div className="divide-y divide-black/[0.05] max-h-48 overflow-y-auto">
                 {branchDeliveries.map(del => (
                   <div key={del.id} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
-                        <span className="font-mono text-blue-600">#{del.manualReceiptNo}</span>
+                      <div className="font-bold text-[#1D1D1F] flex items-center gap-1.5">
+                        <span className="font-mono text-[#0071E3]">#{del.manualReceiptNo}</span>
                         <span>• {del.repName}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400">
-                        {del.date} {del.time} • {del.items.map(i => `${i.productName} (${i.weightKg}کگم)`).join(', ')}
+                      <span className="text-[10px] text-[#86868B]">
+                        {del.date} {del.time} • {del.items.map(i => `${i.productName} (${i.weightKg} کگم)`).join('، ')}
                       </span>
                     </div>
-                    <div className="text-left font-mono font-black text-slate-700 dark:text-slate-300">
+                    <span className="font-extrabold text-[#1D1D1F] tabular-nums">
                       {del.totalWeightKg.toFixed(1)} کگم
-                    </div>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1210,84 +1167,78 @@ export const POSView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: STORE INVENTORY (کۆگای فرۆشگا و ئاستی خەزێنە) */}
+      {/* TAB 3: STORE INVENTORY (کۆگای شۆرۆم) */}
       {/* ========================================================================= */}
       {activeSubTab === 'INVENTORY' && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div className="apple-card p-5 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
             <div>
-              <h3 className="font-black text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <Boxes className="w-5 h-5 text-indigo-600" />
-                کۆگای فرۆشگا (سەلاجەی شۆرۆم)
+              <h3 className="font-extrabold text-base text-[#1D1D1F] flex items-center gap-2">
+                <Boxes className="w-5 h-5 text-[#34C759]" />
+                کۆگای سەربەخۆی فرۆشگا
               </h3>
-              <p className="text-xs text-slate-500">ئاستی کێشی ماوە، نرخی فرۆشتن بە کڕیار، و ئاگاداری کەمی بڕ</p>
+              <p className="text-xs text-[#86868B]">ئاستی کێشی ماوە و نرخی فرۆشتن بە کڕیاری شۆرۆم</p>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold">
-                  <th className="py-3 px-3">بەرهەم</th>
-                  <th className="py-3 px-3">کۆد / بارکۆد</th>
-                  <th className="py-3 px-3 text-center">کێشی ماوە لە کۆگا</th>
-                  <th className="py-3 px-3 text-center">ئاستی ئاگاداری</th>
-                  <th className="py-3 px-3 text-center">نرخی فرۆشتن (کڕیار)</th>
-                  <th className="py-3 px-3 text-center">تێچووی کارگە</th>
-                  <th className="py-3 px-3 text-center">دۆخ</th>
-                  <th className="py-3 px-3 text-center">دەستکاری نرخ</th>
+                <tr className="bg-[#F5F5F7] text-[#515154] font-semibold">
+                  <th className="p-3.5 rounded-r-xl">بەرهەم</th>
+                  <th className="p-3.5">کۆد / بارکۆد</th>
+                  <th className="p-3.5 text-center">کێشی ماوە</th>
+                  <th className="p-3.5 text-center">ئاستی ئاگاداری</th>
+                  <th className="p-3.5 text-center">نرخی فرۆشتن</th>
+                  <th className="p-3.5 text-center">تێچووی کارگە</th>
+                  <th className="p-3.5 text-center">دۆخ</th>
+                  <th className="p-3.5 text-center rounded-l-xl">دەستکاری</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-black/[0.05]">
                 {branchStock.map(item => {
                   const isLow = item.inStockKg <= item.minAlertKg;
                   const isOut = item.inStockKg <= 0;
 
                   return (
-                    <tr key={item.productId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="py-3 px-3 font-black text-sm text-slate-900 dark:text-white">
-                        {item.productName}
+                    <tr key={item.productId} className="hover:bg-[#F5F5F7]/60 transition-colors">
+                      <td className="p-3.5 font-bold text-[#1D1D1F]">{item.productName}</td>
+                      <td className="p-3.5 font-mono text-[#86868B]">
+                        {item.code} ({item.barcode || '2100' + item.code})
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-500">
-                        {item.code} <span className="text-[10px]">({item.barcode || '2100' + item.code})</span>
-                      </td>
-                      <td className="py-3 px-3 text-center font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                      <td className="p-3.5 text-center font-extrabold text-[#0071E3] tabular-nums">
                         {item.inStockKg.toFixed(2)} کگم
                       </td>
-                      <td className="py-3 px-3 text-center font-mono text-slate-400">
-                        {item.minAlertKg} کگم
-                      </td>
-                      <td className="py-3 px-3 text-center font-mono font-bold text-emerald-600">
+                      <td className="p-3.5 text-center text-[#86868B] tabular-nums">{item.minAlertKg} کگم</td>
+                      <td className="p-3.5 text-center font-bold text-[#248A3D] tabular-nums">
                         {item.retailPricePerKg.toLocaleString()} د.ع
                       </td>
-                      <td className="py-3 px-3 text-center font-mono text-slate-500">
+                      <td className="p-3.5 text-center text-[#515154] tabular-nums">
                         {item.factoryCostPerKg.toLocaleString()} د.ع
                       </td>
-                      <td className="py-3 px-3 text-center">
+                      <td className="p-3.5 text-center">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             isOut
-                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                              ? 'bg-[#FF3B30]/12 text-[#D70015]'
                               : isLow
-                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                              ? 'bg-[#FF9500]/12 text-[#B25000]'
+                              : 'bg-[#34C759]/12 text-[#248A3D]'
                           }`}
                         >
-                          {isOut ? 'نەماوە ⚠️' : isLow ? 'کەمە ⚠️' : 'تەواوە ✅'}
+                          {isOut ? 'نەماوە' : isLow ? 'کەمە' : 'تەواوە'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-center">
+                      <td className="p-3.5 text-center">
                         <button
                           onClick={() => {
-                            const newPrice = prompt(`نرخی نوێی فرۆشتن بۆ (${item.productName}):`, item.retailPricePerKg.toString());
-                            if (newPrice && !isNaN(parseFloat(newPrice))) {
-                              updateBranchStockItem(item.productId, { retailPricePerKg: parseFloat(newPrice) });
-                              showToast('نرخ نوێکرایەوە', 'success');
-                            }
+                            setEditingPriceItem(item);
+                            setNewPriceInput(item.retailPricePerKg.toString());
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors"
+                          className="px-3 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#0071E3] hover:text-white text-[#1D1D1F] font-semibold text-xs transition-colors inline-flex items-center gap-1"
                         >
-                          گۆڕینی نرخ
+                          <Edit3 className="w-3 h-3" />
+                          نرخ
                         </button>
                       </td>
                     </tr>
@@ -1300,220 +1251,174 @@ export const POSView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: POS SALES HISTORY & REPRINT (مێژووی وەسڵەکان و چاپی گەرم) */}
-      {/* ========================================================================= */}
-      {activeSubTab === 'HISTORY' && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h3 className="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-purple-600" />
-                مێژووی وەسڵەکانی فرۆشگا
-              </h3>
-              <p className="text-xs text-slate-500">بینینەوە و چاپکردنەوەی هەموو وەسڵەکانی پۆس</p>
-            </div>
-            <span className="px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-mono font-bold text-xs">
-              کۆی وەسڵەکان: {posSales.length}
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-bold">
-                  <th className="py-3 px-3">ژمارەی وەسڵ</th>
-                  <th className="py-3 px-3">بەروار و کات</th>
-                  <th className="py-3 px-3">کڕیار</th>
-                  <th className="py-3 px-3">کاشێر</th>
-                  <th className="py-3 px-3 text-center">ژمارەی بڕگەکان</th>
-                  <th className="py-3 px-3 text-center">شێوازی پارەدان</th>
-                  <th className="py-3 px-3 text-left">کۆی پارە</th>
-                  <th className="py-3 px-3 text-center">کردار</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {posSales.map(sale => (
-                  <tr key={sale.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-3 px-3 font-mono font-black text-purple-600">
-                      {sale.saleNo}
-                    </td>
-                    <td className="py-3 px-3 text-slate-500 font-mono">
-                      {sale.date} {sale.time}
-                    </td>
-                    <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
-                      {sale.customerName || 'کڕیاری ئاسایی'}
-                    </td>
-                    <td className="py-3 px-3 text-slate-500">
-                      {sale.cashierName}
-                    </td>
-                    <td className="py-3 px-3 text-center font-bold">
-                      {sale.items.length} بەرهەم ({sale.items.reduce((s, i) => s + i.weightKg, 0).toFixed(2)} کگم)
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          sale.paymentType === 'CASH'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : sale.paymentType === 'FIB_OR_CARD'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-rose-100 text-rose-700'
-                        }`}
-                      >
-                        {sale.paymentType === 'CASH' ? 'نەقد' : sale.paymentType === 'FIB_OR_CARD' ? 'کارت' : 'قەرز'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-left font-mono font-black text-sm text-emerald-600">
-                      {sale.total.toLocaleString()} د.ع
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <button
-                        onClick={() => setPrintReceipt(sale)}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 hover:text-purple-700 rounded-xl font-bold text-xs transition-colors flex items-center gap-1 mx-auto"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        چاپکردنەوە
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB 6: CASH REGISTER & EXPENSES (سەندوق و خەرجی) */}
+      {/* TAB 4: REGISTER REPORT, RECEIPTS & EXPENSES */}
       {/* ========================================================================= */}
       {activeSubTab === 'REGISTER_REPORT' && (
-        <div className="space-y-4">
-          {/* Summary Metric Cards */}
+        <div className="space-y-5">
+          {/* Apple Bento KPI Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-xs text-slate-500 font-bold block mb-1">کۆی فرۆشی پۆس:</span>
-              <div className="text-2xl font-black font-mono text-emerald-600">
-                {posSales.reduce((sum, s) => sum + s.total, 0).toLocaleString()} <span className="text-xs">د.ع</span>
+            <div className="apple-card p-4">
+              <span className="text-[11px] font-semibold text-[#86868B] block">کۆی فرۆشی پۆس</span>
+              <div className="text-2xl font-black text-[#0071E3] tabular-nums mt-1">
+                {totalAllSales.toLocaleString()} <span className="text-xs font-medium text-[#86868B]">د.ع</span>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-xs text-slate-500 font-bold block mb-1">پارەی نەقدی وەرگیراو:</span>
-              <div className="text-2xl font-black font-mono text-blue-600">
-                {posSales
-                  .filter(s => s.paymentType === 'CASH')
-                  .reduce((sum, s) => sum + s.total, 0)
-                  .toLocaleString()}{' '}
-                <span className="text-xs">د.ع</span>
+            <div className="apple-card p-4">
+              <span className="text-[11px] font-semibold text-[#86868B] block">نەقدی وەرگیراو</span>
+              <div className="text-2xl font-black text-[#248A3D] tabular-nums mt-1">
+                {totalCashSales.toLocaleString()} <span className="text-xs font-medium text-[#86868B]">د.ع</span>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-xs text-slate-500 font-bold block mb-1">کۆی خەرجییەکانی شۆروم:</span>
-              <div className="text-2xl font-black font-mono text-rose-600">
-                {branchExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} <span className="text-xs">د.ع</span>
+            <div className="apple-card p-4">
+              <span className="text-[11px] font-semibold text-[#86868B] block">خەرجی شۆرۆم</span>
+              <div className="text-2xl font-black text-[#FF3B30] tabular-nums mt-1">
+                {totalBranchExpenses.toLocaleString()} <span className="text-xs font-medium text-[#86868B]">د.ع</span>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-xs text-slate-500 font-bold block mb-1">باڵانسی نەقدی ماوە لە سەندوق:</span>
-              <div className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-                {(
-                  posSales.filter(s => s.paymentType === 'CASH').reduce((sum, s) => sum + s.total, 0) -
-                  branchExpenses.reduce((sum, e) => sum + e.amount, 0)
-                ).toLocaleString()}{' '}
-                <span className="text-xs font-normal">د.ع</span>
+            <div className="apple-card p-4">
+              <span className="text-[11px] font-semibold text-[#86868B] block">سافی ناو سەندوق</span>
+              <div className="text-2xl font-black text-[#1D1D1F] tabular-nums mt-1">
+                {netCashInDrawer.toLocaleString()} <span className="text-xs font-medium text-[#86868B]">د.ع</span>
               </div>
             </div>
           </div>
 
-          {/* Expenses Management */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h4 className="font-black text-base text-slate-900 dark:text-white">خەرجییەکانی فرۆشگا</h4>
-                <p className="text-xs text-slate-500">پاکەت، عەلاگە، کارەبا، خاوێنکردنەوە و کرێی شۆروم</p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* POS Sales Receipts History */}
+            <div className="lg:col-span-7 apple-card p-5 space-y-3">
+              <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+                <h4 className="font-extrabold text-sm text-[#1D1D1F] flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-[#0071E3]" />
+                  مێژووی وەسڵەکانی فرۆشگا
+                </h4>
+                <span className="text-xs font-bold text-[#86868B] tabular-nums">{posSales.length} وەسڵ</span>
               </div>
 
-              <button
-                onClick={() => setShowAddExpenseModal(true)}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                تۆمارکردنی خەرجی نوێ
-              </button>
+              <div className="divide-y divide-black/[0.05] max-h-[380px] overflow-y-auto">
+                {posSales.map(sale => (
+                  <div key={sale.id} className="py-3 flex items-center justify-between gap-2 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-[#0071E3]">{sale.saleNo}</span>
+                        <span className="font-bold text-[#1D1D1F]">{sale.customerName || 'کڕیاری ئاسایی'}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            sale.paymentType === 'CASH'
+                              ? 'bg-[#34C759]/12 text-[#248A3D]'
+                              : sale.paymentType === 'FIB_OR_CARD'
+                              ? 'bg-[#0071E3]/12 text-[#0071E3]'
+                              : 'bg-[#FF3B30]/12 text-[#D70015]'
+                          }`}
+                        >
+                          {sale.paymentType === 'CASH' ? 'نەقد' : sale.paymentType === 'FIB_OR_CARD' ? 'کارت' : 'قەرز'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#86868B]">
+                        {sale.date} {sale.time} • کاشێر: {sale.cashierName}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="font-extrabold text-sm text-[#1D1D1F] tabular-nums">
+                        {sale.total.toLocaleString()} د.ع
+                      </span>
+                      <button
+                        onClick={() => setPrintReceipt(sale)}
+                        className="px-3 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#0071E3] hover:text-white text-[#1D1D1F] font-semibold text-xs transition-colors flex items-center gap-1"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        چاپ
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {branchExpenses.map(exp => (
-                <div key={exp.id} className="py-3 flex items-center justify-between text-xs">
-                  <div>
-                    <h5 className="font-bold text-slate-900 dark:text-white">{exp.title}</h5>
-                    <span className="text-[10px] text-slate-400">
-                      {exp.date} {exp.time} • پۆلێن: {exp.category}
+            {/* Store Expenses */}
+            <div className="lg:col-span-5 apple-card p-5 space-y-3">
+              <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+                <h4 className="font-extrabold text-sm text-[#1D1D1F] flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-[#FF3B30]" />
+                  خەرجییەکانی شۆرۆم
+                </h4>
+                <button
+                  onClick={() => setShowAddExpenseModal(true)}
+                  className="px-3 py-1.5 rounded-full bg-[#FF3B30] hover:bg-[#E0352B] text-white font-bold text-xs flex items-center gap-1 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  خەرجی نوێ
+                </button>
+              </div>
+
+              <div className="divide-y divide-black/[0.05] max-h-[380px] overflow-y-auto">
+                {branchExpenses.map(exp => (
+                  <div key={exp.id} className="py-3 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="font-bold text-[#1D1D1F]">{exp.title}</div>
+                      <span className="text-[10px] text-[#86868B]">
+                        {exp.date} {exp.time}
+                      </span>
+                    </div>
+                    <span className="font-extrabold text-[#FF3B30] tabular-nums">
+                      -{exp.amount.toLocaleString()} د.ع
                     </span>
                   </div>
-                  <div className="font-mono font-black text-sm text-rose-600">
-                    -{exp.amount.toLocaleString()} د.ع
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: WEIGHT NUMPAD SCALE (کلیک لەسەر بەرهەم بۆ دیاریکردنی کێش) */}
+      {/* MODAL: APPLE NUMERIC SCALE KEYPAD */}
       {/* ========================================================================= */}
       {weightModalProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-white rounded-[28px] p-5 shadow-2xl border border-black/[0.08] space-y-4 apple-sheet">
+            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
               <div>
-                <h3 className="font-black text-base text-slate-900 dark:text-white">{weightModalProduct.nameKu}</h3>
-                <span className="text-xs text-slate-400 font-mono">
-                  نرخ: {weightModalProduct.pricePerKg.toLocaleString()} د.ع/کگم
+                <h3 className="font-extrabold text-sm text-[#1D1D1F]">{weightModalProduct.nameKu}</h3>
+                <span className="text-xs text-[#86868B] tabular-nums">
+                  {(branchStock.find(b => b.productId === weightModalProduct.id)?.retailPricePerKg || weightModalProduct.pricePerKg).toLocaleString()} د.ع / کگم
                 </span>
               </div>
               <button
                 onClick={() => setWeightModalProduct(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
+                className="w-7 h-7 rounded-full bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#86868B] flex items-center justify-center"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Live Weight Display */}
-            <div className="p-4 rounded-2xl bg-slate-950 text-white text-center space-y-1">
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest font-mono">تەرازوو / کێشی کڕیار</span>
-              <div className="text-4xl font-black font-mono text-emerald-400">
+            <div className="p-4 rounded-2xl bg-[#F5F5F7] text-center space-y-1">
+              <span className="text-[10px] font-bold text-[#86868B] uppercase tracking-wider">کێشی تەرازوو</span>
+              <div className="text-4xl font-black text-[#1D1D1F] tabular-nums">
                 {parseFloat(weightKeypadValue || '0').toFixed(3)}{' '}
-                <span className="text-base font-normal text-slate-400">کگم</span>
+                <span className="text-sm font-semibold text-[#86868B]">کگم</span>
               </div>
-              <div className="text-sm font-mono text-slate-300">
-                کۆی پارە:{' '}
-                <span className="font-bold text-white">
-                  {Math.round((parseFloat(weightKeypadValue || '0') || 0) * weightModalProduct.pricePerKg).toLocaleString()}
-                </span>{' '}
-                د.ع
+              <div className="text-xs font-bold text-[#0071E3] tabular-nums">
+                کۆ: {Math.round((parseFloat(weightKeypadValue || '0') || 0) * (branchStock.find(b => b.productId === weightModalProduct.id)?.retailPricePerKg || weightModalProduct.pricePerKg)).toLocaleString()} د.ع
               </div>
             </div>
 
-            {/* Quick Weight Preset Buttons */}
             <div className="grid grid-cols-4 gap-1.5">
               {['0.500', '1.000', '1.500', '2.000'].map(val => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setWeightKeypadValue(val)}
-                  className="py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-950 text-slate-800 dark:text-slate-200 font-mono font-bold text-xs rounded-xl transition-colors"
+                  className="py-1.5 bg-[#F5F5F7] hover:bg-[#0071E3] hover:text-white text-[#1D1D1F] font-bold text-xs rounded-full tabular-nums transition-colors"
                 >
                   {val}
                 </button>
               ))}
             </div>
 
-            {/* NumPad */}
             <div className="grid grid-cols-3 gap-2">
               {['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '.'].map(char => (
                 <button
@@ -1528,14 +1433,13 @@ export const POSView: React.FC = () => {
                       setWeightKeypadValue(prev => (prev === '0' || prev === '1.000' ? char : prev + char));
                     }
                   }}
-                  className="py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-mono font-black text-lg rounded-xl shadow-xs transition-colors"
+                  className="py-3 bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-bold text-lg rounded-2xl tabular-nums transition-colors active:scale-95"
                 >
                   {char}
                 </button>
               ))}
             </div>
 
-            {/* Add to Cart Submit */}
             <button
               onClick={() => {
                 const w = parseFloat(weightKeypadValue);
@@ -1544,13 +1448,13 @@ export const POSView: React.FC = () => {
                   const price = branchItem ? branchItem.retailPricePerKg : weightModalProduct.pricePerKg;
                   addItemToCart(weightModalProduct, w, price);
                   playPosBeep('scale');
-                  showToast(`${weightModalProduct.nameKu} (${w.toFixed(3)} کگم) خرایە سەبەتە`, 'success');
+                  showToast(`${weightModalProduct.nameKu} (${w.toFixed(3)} کگم) زیادکرا`, 'success');
                   setWeightModalProduct(null);
                 }
               }}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 active:scale-98 transition-all"
+              className="w-full py-3.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-sm rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.985]"
             >
-              <Check className="w-5 h-5" />
+              <Check className="w-4 h-4" />
               <span>خستنە ناو سەبەتە</span>
             </button>
           </div>
@@ -1558,190 +1462,218 @@ export const POSView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: THERMAL RECEIPT 80MM (وەسڵی چاپی گەرمی ستاندارد) */}
+      {/* MODAL: 80MM THERMAL RECEIPT SHEET */}
       {/* ========================================================================= */}
       {printReceipt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm bg-white text-slate-900 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            {/* Action Bar */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-              <span className="text-xs font-black text-slate-500">وەسڵی فرۆشتنی پۆس (80mm)</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-white rounded-[28px] p-5 shadow-2xl border border-black/[0.08] space-y-4 max-h-[90vh] overflow-y-auto apple-sheet">
+            <div className="flex items-center justify-between pb-2 border-b border-black/[0.06] no-print">
+              <span className="text-xs font-bold text-[#86868B]">وەسڵی گەرمی 80mm</span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-3 py-1 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow"
+                  className="px-3.5 py-1.5 bg-[#0071E3] text-white rounded-full text-xs font-bold flex items-center gap-1"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  چاپ
+                  چاپکردن
                 </button>
                 <button
                   onClick={() => setPrintReceipt(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:bg-slate-100"
+                  className="w-7 h-7 rounded-full bg-[#F5F5F7] text-[#86868B] flex items-center justify-center"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Thermal Slip Content */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl font-mono text-center space-y-3">
+            <div className="p-4 bg-[#F5F5F7] rounded-2xl text-center space-y-3 font-mono">
               <div>
-                <h2 className="font-black text-base tracking-wider text-slate-900">FFC FRESH CHICKEN</h2>
-                <p className="text-[11px] text-slate-500">فرۆشگای تایبەتی مریشکی فرێش</p>
-                <p className="text-[10px] text-slate-400 font-sans">سلێمانی - پیشەسازی</p>
+                <h2 className="font-black text-base text-[#1D1D1F]">FFC FRESH CHICKEN</h2>
+                <p className="text-[11px] font-sans text-[#515154]">فرۆشگای تایبەتی مریشکی فرێش</p>
               </div>
 
-              <div className="border-t border-b border-dashed border-slate-300 py-1.5 text-right text-[11px] space-y-0.5">
+              <div className="border-t border-b border-dashed border-black/20 py-2 text-right text-[11px] space-y-0.5">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">وەسڵ:</span>
-                  <span className="font-bold">{printReceipt.saleNo}</span>
+                  <span className="text-[#86868B]">وەسڵ:</span>
+                  <span className="font-bold text-[#1D1D1F]">{printReceipt.saleNo}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">بەروار و کات:</span>
-                  <span>
-                    {printReceipt.date} {printReceipt.time}
-                  </span>
+                  <span className="text-[#86868B]">بەروار:</span>
+                  <span>{printReceipt.date} {printReceipt.time}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">کڕیار:</span>
+                  <span className="text-[#86868B]">کڕیار:</span>
                   <span className="font-sans font-bold">{printReceipt.customerName || 'کڕیاری ئاسایی'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">کاشێر:</span>
+                  <span className="text-[#86868B]">کاشێر:</span>
                   <span className="font-sans">{printReceipt.cashierName}</span>
                 </div>
               </div>
 
-              {/* Items Breakdown */}
-              <div className="space-y-1 text-right text-[11px]">
-                <div className="flex justify-between font-bold text-slate-400 pb-1 border-b border-slate-200">
-                  <span>کاڵا / کێش</span>
-                  <span>کۆی پارە</span>
-                </div>
+              <div className="space-y-1.5 text-right text-[11px]">
                 {printReceipt.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
+                  <div key={idx} className="flex justify-between py-1 border-b border-black/[0.05]">
                     <div>
-                      <div className="font-sans font-bold text-slate-800">{item.productName}</div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="font-sans font-bold text-[#1D1D1F]">{item.productName}</div>
+                      <div className="text-[10px] text-[#86868B]">
                         {item.weightKg.toFixed(3)} کگم × {item.pricePerKg.toLocaleString()} د.ع
                       </div>
                     </div>
-                    <div className="font-bold text-slate-900">{item.total.toLocaleString()} د.ع</div>
+                    <div className="font-bold text-[#1D1D1F]">{item.total.toLocaleString()} د.ع</div>
                   </div>
                 ))}
               </div>
 
-              {/* Totals */}
-              <div className="border-t-2 border-slate-900 pt-2 text-right text-xs space-y-1">
-                <div className="flex justify-between text-slate-600">
+              <div className="border-t border-black/20 pt-2 text-right text-xs space-y-1">
+                <div className="flex justify-between text-[#515154]">
                   <span>کۆی بڕ:</span>
                   <span>{printReceipt.subtotal.toLocaleString()} د.ع</span>
                 </div>
                 {printReceipt.discount > 0 && (
-                  <div className="flex justify-between text-amber-600 font-bold">
+                  <div className="flex justify-between text-[#FF9500] font-bold">
                     <span>داشکاندن:</span>
                     <span>-{printReceipt.discount.toLocaleString()} د.ع</span>
                   </div>
                 )}
-                <div className="flex justify-between font-black text-sm text-slate-900 pt-1 border-t border-slate-300">
+                <div className="flex justify-between font-black text-sm text-[#1D1D1F] pt-1">
                   <span>کۆی گشتی:</span>
-                  <span className="text-emerald-700">{printReceipt.total.toLocaleString()} د.ع</span>
+                  <span className="text-[#0071E3]">{printReceipt.total.toLocaleString()} د.ع</span>
                 </div>
-
                 {printReceipt.paymentType === 'CASH' && (
                   <>
-                    <div className="flex justify-between text-[11px] text-slate-500 pt-1">
+                    <div className="flex justify-between text-[11px] text-[#86868B]">
                       <span>پارەی دراو:</span>
                       <span>{(printReceipt.paidAmount || printReceipt.total).toLocaleString()} د.ع</span>
                     </div>
-                    <div className="flex justify-between text-[11px] text-slate-500">
+                    <div className="flex justify-between text-[11px] text-[#248A3D] font-bold">
                       <span>پارەی گەڕاوە:</span>
-                      <span className="font-bold text-slate-800">
-                        {(printReceipt.changeAmount || 0).toLocaleString()} د.ع
-                      </span>
+                      <span>{(printReceipt.changeAmount || 0).toLocaleString()} د.ع</span>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Barcode representation */}
               <div className="pt-2">
                 <BarcodeSVG code={printReceipt.saleNo.replace(/[^0-9]/g, '') || '1001001'} width={220} height={40} />
               </div>
 
-              <p className="text-[10px] text-slate-400 font-sans pt-1">
-                سوپاس بۆ سەردانەکەتان • مریشکی تەندروست و فرێش
-              </p>
+              <p className="text-[10px] text-[#86868B] font-sans">سوپاس بۆ سەردانەکەتان</p>
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: ADD EXPENSE */}
+      {/* MODAL: APPLE PRICE EDIT SHEET */}
       {/* ========================================================================= */}
-      {showAddExpenseModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+      {editingPriceItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
           <form
-            onSubmit={handleAddExpense}
-            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+            onSubmit={handleSavePriceEdit}
+            className="w-full max-w-sm bg-white rounded-[28px] p-5 shadow-2xl border border-black/[0.08] space-y-4 apple-sheet"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-black text-base text-slate-900 dark:text-white">تۆمارکردنی خەرجی شۆروم</h3>
+            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+              <h3 className="font-extrabold text-sm text-[#1D1D1F]">گۆڕینی نرخی فرۆشتن</h3>
               <button
                 type="button"
-                onClick={() => setShowAddExpenseModal(false)}
-                className="p-1 rounded-lg text-slate-400"
+                onClick={() => setEditingPriceItem(null)}
+                className="w-7 h-7 rounded-full bg-[#F5F5F7] text-[#86868B] flex items-center justify-center"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div>
-              <label className="font-bold text-xs text-slate-600 dark:text-slate-300 block mb-1">ناوی خەرجی:</label>
+            <div className="text-xs space-y-2">
+              <div className="font-bold text-[#1D1D1F]">{editingPriceItem.productName}</div>
+              <label className="text-[#86868B] block">نرخی نوێ بۆ یەک کیلۆ (د.ع):</label>
               <input
-                type="text"
-                value={expTitle}
-                onChange={e => setExpTitle(e.target.value)}
-                placeholder="نموونە: کڕینی عەلاگەی لۆگۆدار..."
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs"
+                type="number"
+                value={newPriceInput}
+                onChange={e => setNewPriceInput(e.target.value)}
+                className="apple-input w-full px-3.5 py-2.5 font-extrabold text-base text-[#0071E3] tabular-nums"
+                autoFocus
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <button
+              type="submit"
+              className="w-full py-3 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs rounded-2xl transition-all"
+            >
+              پاشەکەوتکردنی نرخ
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADD STORE EXPENSE SHEET */}
+      {/* ========================================================================= */}
+      {showAddExpenseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+          <form
+            onSubmit={handleAddExpense}
+            className="w-full max-w-md bg-white rounded-[28px] p-5 shadow-2xl border border-black/[0.08] space-y-4 apple-sheet"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+              <h3 className="font-extrabold text-sm text-[#1D1D1F]">تۆمارکردنی خەرجی شۆرۆم</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddExpenseModal(false)}
+                className="w-7 h-7 rounded-full bg-[#F5F5F7] text-[#86868B] flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs space-y-3">
               <div>
-                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">بڕی پارە (د.ع):</label>
+                <label className="font-semibold text-[#515154] block mb-1">ناوی خەرجی:</label>
                 <input
-                  type="number"
-                  value={expAmount}
-                  onChange={e => setExpAmount(e.target.value)}
-                  placeholder="25000"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-sm text-rose-600"
+                  type="text"
+                  value={expTitle}
+                  onChange={e => setExpTitle(e.target.value)}
+                  placeholder="نموونە: عەلاگە و پاکەت..."
+                  className="apple-input w-full px-3.5 py-2.5 font-medium"
                   required
                 />
               </div>
-              <div>
-                <label className="font-bold text-slate-600 dark:text-slate-300 block mb-1">پۆلێن:</label>
-                <select
-                  value={expCategory}
-                  onChange={e => setExpCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs"
-                >
-                  <option value="PACKAGING">پاکەت و عەلاگە</option>
-                  <option value="ELECTRICITY">کارەبا و بەفر</option>
-                  <option value="RENT">کرێی شوێن</option>
-                  <option value="SALARIES">مووچەی کاشێر</option>
-                  <option value="CLEANING">خاوێنکردنەوە</option>
-                  <option value="MAINTENANCE">چاککردنەوە</option>
-                  <option value="OTHER">هی تر</option>
-                </select>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-[#515154] block mb-1">بڕی پارە (د.ع):</label>
+                  <input
+                    type="number"
+                    value={expAmount}
+                    onChange={e => setExpAmount(e.target.value)}
+                    placeholder="25000"
+                    className="apple-input w-full px-3.5 py-2.5 font-bold text-sm text-[#FF3B30] tabular-nums"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-[#515154] block mb-1">پۆلێن:</label>
+                  <select
+                    value={expCategory}
+                    onChange={e => setExpCategory(e.target.value as 'RENT' | 'ELECTRICITY' | 'PACKAGING' | 'SALARIES' | 'CLEANING' | 'MAINTENANCE' | 'OTHER')}
+                    className="apple-input w-full px-3 py-2.5 font-bold"
+                  >
+                    <option value="PACKAGING">پاکەت و عەلاگە</option>
+                    <option value="ELECTRICITY">کارەبا و بەفر</option>
+                    <option value="RENT">کرێی شوێن</option>
+                    <option value="SALARIES">مووچە</option>
+                    <option value="CLEANING">خاوێنکردنەوە</option>
+                    <option value="MAINTENANCE">چاککردنەوە</option>
+                    <option value="OTHER">هی تر</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-xl shadow-lg shadow-rose-600/30 transition-all"
+              className="w-full py-3 bg-[#FF3B30] hover:bg-[#E0352B] text-white font-bold text-xs rounded-2xl transition-all"
             >
               تۆمارکردنی خەرجی
             </button>

@@ -14,9 +14,10 @@ import { LoginModal } from './components/auth/LoginModal';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { hasAccess, currentUser } = useApp();
 
-  // If user role changes and they don't have access to activeTab, redirect to first allowed tab or dashboard
+  // Redirect if current role lacks permission for activeTab
   useEffect(() => {
     if (!hasAccess(activeTab)) {
       if (currentUser.role === 'REP') {
@@ -30,17 +31,18 @@ function AppContent() {
   }, [currentUser, activeTab, hasAccess]);
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] flex flex-col font-sans selection:bg-[#0071E3] selection:text-white">
-      {/* Apple Frosted Navbar */}
-      <Navbar currentTab={activeTab} />
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] flex flex-col selection:bg-[#0071E3] selection:text-white">
+      <Navbar onToggleMobileMenu={() => setMobileMenuOpen(true)} />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row">
-        {/* Apple Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="flex-1 flex">
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          mobileOpen={mobileMenuOpen}
+          onCloseMobile={() => setMobileMenuOpen(false)}
+        />
 
-        {/* View Container */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 lg:p-7 max-w-[1440px] mx-auto w-full overflow-x-hidden">
           {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
           {activeTab === 'intake' && hasAccess('intake') && <LiveIntakeView />}
           {(activeTab === 'rep-sales' || activeTab === 'dispatch') && hasAccess('rep-sales') && <RepSalesView />}
@@ -52,7 +54,6 @@ function AppContent() {
         </main>
       </div>
 
-      {/* Login & Role Switcher Modal */}
       <LoginModal />
     </div>
   );

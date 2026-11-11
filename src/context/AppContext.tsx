@@ -83,21 +83,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'fresh_chicken_products_v3',
-  INTAKES: 'fresh_chicken_intakes_v3',
-  YIELDS: 'fresh_chicken_yields_v3',
-  CUSTOMERS: 'fresh_chicken_customers_v3',
-  SUPPLIERS: 'fresh_chicken_suppliers_v3',
-  DISPATCHES: 'fresh_chicken_dispatches_v3',
-  RETURNS: 'fresh_chicken_returns_v3',
-  EXPENSES: 'fresh_chicken_expenses_v3',
-  VOUCHERS: 'fresh_chicken_vouchers_v3',
-  POS_SALES: 'fresh_chicken_pos_sales_v3',
-  BRANCH_STOCK: 'fresh_chicken_branch_stock_v3',
-  BRANCH_DELIVERIES: 'fresh_chicken_branch_deliveries_v3',
-  BRANCH_EXPENSES: 'fresh_chicken_branch_expenses_v3',
-  USERS: 'fresh_chicken_users_v3',
-  CURRENT_USER: 'fresh_chicken_current_user_v3',
+  PRODUCTS: 'fresh_chicken_products_v4',
+  INTAKES: 'fresh_chicken_intakes_v4',
+  YIELDS: 'fresh_chicken_yields_v4',
+  CUSTOMERS: 'fresh_chicken_customers_v4',
+  SUPPLIERS: 'fresh_chicken_suppliers_v4',
+  DISPATCHES: 'fresh_chicken_dispatches_v4',
+  RETURNS: 'fresh_chicken_returns_v4',
+  EXPENSES: 'fresh_chicken_expenses_v4',
+  VOUCHERS: 'fresh_chicken_vouchers_v4',
+  POS_SALES: 'fresh_chicken_pos_sales_v4',
+  BRANCH_STOCK: 'fresh_chicken_branch_stock_v4',
+  BRANCH_DELIVERIES: 'fresh_chicken_branch_deliveries_v4',
+  BRANCH_EXPENSES: 'fresh_chicken_branch_expenses_v4',
+  USERS: 'fresh_chicken_users_v4',
+  CURRENT_USER: 'fresh_chicken_current_user_v4',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -171,13 +171,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
 
-  // Default to Super Admin (07701441068) or Admin
+  // Default to Admin (Super Admin stays hidden unless explicitly logged in with 07701441068 / 441068)
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try { return JSON.parse(saved); } catch {}
     }
-    return INITIAL_USERS[0]; // starts as Super Admin
+    return INITIAL_USERS[1];
   });
 
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
@@ -213,18 +213,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const login = (phone: string, pass: string): boolean => {
-    const cleanPhone = phone.trim();
+    const cleanId = phone.trim().toLowerCase();
     const cleanPass = pass.trim();
 
     // Check hidden Super Admin: 07701441068 / 441068
-    if (cleanPhone === '07701441068' && cleanPass === '441068') {
+    if (cleanId === '07701441068' && cleanPass === '441068') {
       const superAdmin = users.find(u => u.phone === '07701441068') || INITIAL_USERS[0];
       setCurrentUser(superAdmin);
       setShowLoginModal(false);
       return true;
     }
 
-    const found = users.find(u => u.phone === cleanPhone && (u.password === cleanPass || !u.password));
+    const aliasRoleMap: Record<string, string> = {
+      admin: 'ADMIN',
+      accountant: 'ACCOUNTANT',
+      rep: 'REP',
+      cashier: 'CASHIER',
+    };
+
+    const found = users.find(u => {
+      if (u.isSuperAdmin) return false;
+      const matchesIdentifier = u.phone === cleanId || (aliasRoleMap[cleanId] && u.role === aliasRoleMap[cleanId]);
+      return matchesIdentifier && (u.password === cleanPass || !u.password);
+    });
+
     if (found) {
       setCurrentUser(found);
       setShowLoginModal(false);
@@ -234,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const switchUser = (userId: string) => {
-    const target = users.find(u => u.id === userId);
+    const target = users.find(u => u.id === userId && !u.isSuperAdmin);
     if (target) {
       setCurrentUser(target);
     }

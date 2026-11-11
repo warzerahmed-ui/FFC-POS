@@ -1,12 +1,12 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { Calendar, Cloud, ShieldCheck, UserCheck, KeyRound } from 'lucide-react';
+import { Calendar, Cloud, KeyRound, Menu } from 'lucide-react';
 
 interface NavbarProps {
-  currentTab?: string;
+  onToggleMobileMenu?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = () => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
   const { currentUser, setShowLoginModal } = useApp();
   const today = new Date().toLocaleDateString('ckb-IQ', {
     weekday: 'long',
@@ -15,60 +15,77 @@ export const Navbar: React.FC<NavbarProps> = () => {
     day: 'numeric',
   });
 
+  const getRoleBadgeClasses = () => {
+    switch (currentUser?.role) {
+      case 'SUPER_ADMIN':
+      case 'ADMIN':
+        return 'bg-[#34C759]/10 border-[#34C759]/20 text-[#248A3D] hover:bg-[#34C759]/18';
+      case 'ACCOUNTANT':
+        return 'bg-[#0071E3]/10 border-[#0071E3]/20 text-[#0071E3] hover:bg-[#0071E3]/18';
+      case 'REP':
+        return 'bg-[#AF52DE]/10 border-[#AF52DE]/20 text-[#AF52DE] hover:bg-[#AF52DE]/18';
+      default:
+        return 'bg-[#FF9500]/10 border-[#FF9500]/20 text-[#B25000] hover:bg-[#FF9500]/18';
+    }
+  };
+
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-2xl border-b border-black/[0.06] px-6 flex items-center justify-between sticky top-0 z-30 no-print transition-all">
-      {/* Apple Brand & Factory */}
+    <header className="h-16 apple-glass border-b border-black/[0.06] px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 no-print">
+      {/* Brand & Mobile Menu Toggle */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-2xl bg-gradient-to-b from-[#1D1D1F] to-[#2C2C2E] flex items-center justify-center shadow-md shadow-black/10 text-white font-semibold text-lg">
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="md:hidden w-9 h-9 rounded-xl bg-black/[0.04] hover:bg-black/[0.08] flex items-center justify-center text-[#1D1D1F] transition-colors"
+            aria-label="کردنەوەی لیست"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+
+        <div className="w-9 h-9 rounded-2xl bg-[#1D1D1F] flex items-center justify-center shadow-sm text-white text-lg">
           🍗
         </div>
+
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-[#1D1D1F] tracking-tight">
+            <h1 className="text-sm font-extrabold text-[#1D1D1F] tracking-tight">
               کارگەی مریشکی فرێش
             </h1>
-            <span className="text-[10px] bg-[#0071E3]/10 text-[#0071E3] font-semibold px-2 py-0.5 rounded-full border border-[#0071E3]/15">
+            <span className="text-[10px] bg-[#0071E3]/10 text-[#0071E3] font-bold px-2 py-0.5 rounded-full">
               FFC-POS
             </span>
           </div>
-          <p className="text-[11px] text-[#86868B]">سیستەمی بەڕێوەبردنی کارگە، مەندوب، فرۆشگا و ژمێریاری</p>
+          <p className="hidden sm:block text-[11px] text-[#86868B]">
+            سیستەمی بەڕێوەبردنی کارگە، مەندوب، شۆرۆم و ژمێریاری
+          </p>
         </div>
       </div>
 
-      {/* Apple Status Badges & User Switcher */}
-      <div className="flex items-center gap-3">
-        {/* Cloudflare Badge */}
-        <div className="hidden md:flex items-center gap-2 bg-[#F5F5F7] border border-black/[0.04] px-3 py-1.5 rounded-full text-[11px] font-medium text-[#1D1D1F]">
+      {/* Status Pills & Account Switcher */}
+      <div className="flex items-center gap-2.5">
+        <div className="hidden lg:flex items-center gap-1.5 bg-[#F5F5F7] border border-black/[0.04] px-3 py-1.5 rounded-full text-[11px] font-medium text-[#515154]">
           <Cloud className="w-3.5 h-3.5 text-[#F6821F]" />
-          <span>Cloudflare Edge (FFC-POS)</span>
+          <span>Cloudflare Pages</span>
         </div>
 
-        {/* Date Pill */}
-        <div className="hidden sm:flex items-center gap-2 text-[11px] font-medium text-[#515154] bg-[#F5F5F7] border border-black/[0.04] px-3.5 py-1.5 rounded-full">
+        <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-medium text-[#515154] bg-[#F5F5F7] border border-black/[0.04] px-3.5 py-1.5 rounded-full">
           <Calendar className="w-3.5 h-3.5 text-[#0071E3]" />
           <span>{today}</span>
         </div>
 
-        {/* Active User Badge / Switch Button */}
         <button
+          type="button"
           onClick={() => setShowLoginModal(true)}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
-            currentUser?.role === 'SUPER_ADMIN'
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 hover:bg-amber-500/20'
-              : currentUser?.role === 'ADMIN'
-              ? 'bg-[#34C759]/10 border-[#34C759]/20 text-[#248A3D] hover:bg-[#34C759]/20'
-              : currentUser?.role === 'ACCOUNTANT'
-              ? 'bg-[#0071E3]/10 border-[#0071E3]/20 text-[#0071E3] hover:bg-[#0071E3]/20'
-              : currentUser?.role === 'REP'
-              ? 'bg-[#AF52DE]/10 border-[#AF52DE]/20 text-[#AF52DE] hover:bg-[#AF52DE]/20'
-              : 'bg-[#FF9500]/10 border-[#FF9500]/20 text-[#FF9500] hover:bg-[#FF9500]/20'
-          }`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${getRoleBadgeClasses()}`}
           title="گۆڕینی ئەکاونت یان چوونەژوورەوە"
         >
-          <span className="text-sm">{currentUser?.avatarEmoji || '👤'}</span>
-          <span className="font-bold">{currentUser?.name}</span>
-          <span className="text-[10px] opacity-75 font-mono">({currentUser?.roleTitleKu})</span>
-          <KeyRound className="w-3 h-3 opacity-60 mr-1" />
+          <span className="text-sm">{currentUser?.role === 'SUPER_ADMIN' ? '👔' : currentUser?.avatarEmoji || '👤'}</span>
+          <span className="font-bold">
+            {currentUser?.role === 'SUPER_ADMIN' ? 'بەڕێوەبەری کارگە' : currentUser?.name}
+          </span>
+          <KeyRound className="w-3 h-3 opacity-60 mr-0.5" />
         </button>
       </div>
     </header>
