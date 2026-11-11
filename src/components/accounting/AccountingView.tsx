@@ -13,12 +13,14 @@ import {
   CheckCircle2,
   Search,
   Filter,
+  Download,
+  Trash2,
 } from 'lucide-react';
 import { Customer, Supplier } from '../../types';
 import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const AccountingView: React.FC = () => {
-  const { customers, suppliers, vouchers, dispatches, posSales, returns, addVoucher, addCustomer, addSupplier, factorySettings } = useApp();
+  const { customers, suppliers, vouchers, dispatches, posSales, returns, addVoucher, addCustomer, addSupplier, softDeleteRecord, hasAccess, factorySettings } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'VOUCHERS' | 'CUSTOMERS' | 'SUPPLIERS'>('VOUCHERS');
 
@@ -381,6 +383,7 @@ export const AccountingView: React.FC = () => {
                   <th className="p-4">قەرزی ماوە (باڵانس)</th>
                   <th className="p-4">شێوازی پارەدان</th>
                   <th className="p-4">تێبینی</th>
+                  {hasAccess('settings') && <th className="p-4 text-center">سڕینەوە</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/[0.04] text-[#1D1D1F]">
@@ -442,6 +445,22 @@ export const AccountingView: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-4 text-[#86868B]">{v.notes || '---'}</td>
+                    {hasAccess('settings') && (
+                      <td className="p-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`سەنەدی #${v.voucherNo} بخرێتە سەبەتەی سۆفت دیلیت و قەرزی ${v.partyName} بگەڕێندرێتەوە؟`)) {
+                              softDeleteRecord('VOUCHER', v.id, 'سڕینەوەی خێرا لە بەشی سەنەدەکان');
+                            }
+                          }}
+                          className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                          title="سۆفت دیلیت (گەڕانەوەی قەرز)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -743,6 +762,38 @@ export const AccountingView: React.FC = () => {
                 
                 <div className="flex items-center gap-2.5 no-print">
                   <button
+                    type="button"
+                    onClick={() => {
+                      const csvRows = [
+                        [factorySettings.factoryName, 'کەشف حسابی کڕیار', selectedCustomer.name, `${startDate} تا ${endDate}`],
+                        ['بەروار', 'کات', 'ژ. وەسڵ / سەنەد', 'وردەکاری', 'کڕین (+)', 'پارەی دراو (-)', 'داشکاندن', 'باڵانسی ماوە'],
+                        [startDate, '---', '---', 'قەرزی سەرەتای ماوە', '0', '0', '0', String(ledger.openingBalance)],
+                        ...ledger.rows.map(r => [
+                          r.date,
+                          r.time,
+                          r.refNo,
+                          r.description,
+                          String(r.debit),
+                          String(r.credit),
+                          String(r.discount),
+                          String(r.balanceAfter),
+                        ]),
+                      ];
+                      const csv = '\uFEFF' + csvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `Statement-${selectedCustomer.name}-${endDate}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-4 py-2.5 bg-[#34C759]/12 hover:bg-[#34C759]/20 text-[#248A3D] rounded-full font-bold flex items-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" />
+                    Excel / CSV
+                  </button>
+                  <button
                     onClick={() => window.print()}
                     className="px-6 py-2.5 bg-[#1D1D1F] hover:bg-[#2C2C2E] text-white rounded-full font-bold flex items-center gap-2 shadow-sm transition-all"
                   >
@@ -789,6 +840,28 @@ export const AccountingView: React.FC = () => {
             <div className="flex justify-between items-center pt-3 text-xs border-t border-black/[0.06]">
               <span className="text-[#86868B]">مۆری فەرمی کارگە: ______________</span>
               <div className="flex gap-2 no-print">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const csvRows = [
+                      [factorySettings.factoryName, 'کەشف حسابی کێڵگە', selectedSupplier.name, new Date().toISOString().split('T')[0]],
+                      ['ناوی کێڵگە', 'تەلەفۆن', 'شوێن', 'قەرزی ماوە (د.ع)'],
+                      [selectedSupplier.name, selectedSupplier.phone, selectedSupplier.farmLocation, String(selectedSupplier.currentBalance)],
+                    ];
+                    const csv = '\uFEFF' + csvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Supplier-${selectedSupplier.name}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-2.5 bg-[#34C759]/12 hover:bg-[#34C759]/20 text-[#248A3D] rounded-full font-bold flex items-center gap-1.5"
+                >
+                  <Download className="w-4 h-4" />
+                  Excel / CSV
+                </button>
                 <button
                   onClick={() => window.print()}
                   className="px-5 py-2.5 bg-[#1D1D1F] hover:bg-[#2C2C2E] text-white rounded-full font-semibold flex items-center gap-1.5 shadow-sm"

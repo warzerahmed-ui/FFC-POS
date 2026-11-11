@@ -13,6 +13,7 @@ import {
   Boxes,
   Calculator,
   FileSpreadsheet,
+  AlertTriangle,
 } from 'lucide-react';
 import { TabType } from '../../types';
 
@@ -30,6 +31,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     suppliers,
     branchStock,
     posSales,
+    custodyTransfers,
+    branchDeliveries,
+    factorySettings,
     currentUser,
     hasAccess,
   } = useApp();
@@ -51,6 +55,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
 
   const totalBranchStockKg = branchStock.reduce((sum, b) => sum + b.inStockKg, 0);
   const totalPOSSalesIQD = posSales.reduce((sum, s) => sum + s.total, 0);
+
+  // Automatic 3-Day Freshness Expiry Alert (Batches in Rep Custody or Showroom near/past returnWindowDays)
+  const freshWindowDays = factorySettings.returnWindowDays || 3;
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const expiryWarnings = [
+    ...custodyTransfers
+      .filter(t => t.direction === 'LOAD')
+      .map(t => {
+        const dMs = new Date(t.date.slice(0, 10)).getTime();
+        const ageDays = Number.isFinite(dMs) ? Math.floor((todayMs - dMs) / 86400000) : 0;
+        return {
+          id: t.id,
+          label: `${t.holderName} • وەسڵ #${t.receiptNo}`,
+          date: t.date,
+          weightKg: t.totalWeightKg,
+          ageDays,
+          targetTab: 'custody' as TabType,
+        };
+      }),
+    ...branchDeliveries.map(b => {
+      const dMs = new Date(b.date.slice(0, 10)).getTime();
+      const ageDays = Number.isFinite(dMs) ? Math.floor((todayMs - dMs) / 86400000) : 0;
+      return {
+        id: b.id,
+        label: `فرۆشگای شۆرۆم • وەسڵ #${b.manualReceiptNo}`,
+        date: b.date,
+        weightKg: b.totalWeightKg,
+        ageDays,
+        targetTab: 'pos' as TabType,
+      };
+    }),
+  ].filter(w => w.ageDays >= Math.max(2, freshWindowDays - 1));
 
   const formatIQD = (val: number) => `${val.toLocaleString()} د.ع`;
 
@@ -135,6 +171,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           )}
         </div>
       </div>
+
+      {/* Automatic 3-Day Freshness Expiry Alert */}
+      {expiryWarnings.length > 0 && (hasAccess('custody') || hasAccess('pos')) && (
+        <div className="p-4 rounded-3xl bg-[#FF9500]/10 border border-[#FF9500]/30 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-[#FF9500] text-white flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-extrabold text-[#9A3412]">
+                ئاگادارکردنەوەی ماوەی فرێش ({freshWindowDays} ڕۆژ): {expiryWarnings.length} باری مەندوب / شۆرۆم ماوەکەیان نزیکبووەتەوە یان تێپەڕیوە!
+              </div>
+              <div className="text-[11px] text-[#7C2D12] mt-0.5 flex flex-wrap gap-2">
+                {expiryWarnings.slice(0, 3).map(w => (
+                  <span key={w.id} className="bg-white/70 px-2 py-0.5 rounded-full font-bold">
+                    {w.label} ({w.ageDays} ڕۆژ • {w.weightKg} کگم)
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          {hasAccess('custody') && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('custody')}
+              className="px-4 py-2 rounded-full bg-[#FF9500] hover:bg-[#E08600] text-white text-xs font-bold shrink-0 transition-all"
+            >
+              پشکنینی عەهدە و گەڕاوە
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Bento KPI Grid (Strictly RBAC Filtered) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

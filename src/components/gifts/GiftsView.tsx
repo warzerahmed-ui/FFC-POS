@@ -15,7 +15,7 @@ import { DispatchItem, DispatchOrder } from '../../types';
 import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const GiftsView: React.FC = () => {
-  const { dispatches, products, factorySettings, repNames, addDispatch } = useApp();
+  const { dispatches, products, factorySettings, repNames, addDispatch, softDeleteRecord, hasAccess } = useApp();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedReceiptForPrint, setSelectedReceiptForPrint] = useState<DispatchOrder | null>(null);
@@ -318,16 +318,32 @@ export const GiftsView: React.FC = () => {
                     </td>
 
                     <td className="p-4 text-center">
-                      <button
-                        onClick={() => {
-                          setShowFactoryCostOnPrint(false);
-                          setSelectedReceiptForPrint(d);
-                        }}
-                        className="p-1.5 rounded-lg bg-[#F5F5F7] hover:bg-[#EAEAEA] text-[#515154] hover:text-[#AF52DE] transition-colors"
-                        title="بینینی وەسڵ و پرینت"
-                      >
-                        <Printer className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setShowFactoryCostOnPrint(false);
+                            setSelectedReceiptForPrint(d);
+                          }}
+                          className="p-1.5 rounded-lg bg-[#F5F5F7] hover:bg-[#EAEAEA] text-[#515154] hover:text-[#AF52DE] transition-colors"
+                          title="بینینی وەسڵ و پرینت"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        {hasAccess('settings') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`وەسڵی دیاری #${d.manualReceiptNo} بخرێتە سەبەتەی سۆفت دیلیت؟`)) {
+                                softDeleteRecord('DISPATCH', d.id, 'سڕینەوەی خێرا لە بەشی دیاری');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                            title="سۆفت دیلیت"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -30,7 +30,7 @@ const REASON_LABELS: Record<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED', string> = 
 };
 
 export const RepSalesView: React.FC = () => {
-  const { dispatches, returns, products, customers, custodyTransfers, factorySettings, repNames, addDispatch, addReturn } =
+  const { dispatches, returns, products, customers, custodyTransfers, factorySettings, repNames, addDispatch, addReturn, softDeleteRecord, hasAccess } =
     useApp();
 
   const [subTab, setSubTab] = useState<SubTabType>('sales');
@@ -775,6 +775,20 @@ export const RepSalesView: React.FC = () => {
                             >
                               <Printer className="w-4 h-4" />
                             </button>
+                            {hasAccess('settings') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`وەسڵی #${d.manualReceiptNo} بخرێتە سەبەتەی سۆفت دیلیت و قەرز/کۆگا بگەڕێندرێتەوە؟`)) {
+                                    softDeleteRecord('DISPATCH', d.id, 'سڕینەوەی خێرا لە فرۆشتنی مەندوب');
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                                title="سۆفت دیلیت"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -866,14 +880,30 @@ export const RepSalesView: React.FC = () => {
                       </td>
 
                       <td className="p-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedReturnForPrint(r)}
-                          className="p-1.5 rounded-lg bg-[#F5F5F7] hover:bg-[#EAEAEA] text-[#515154] hover:text-[#FF3B30] transition-colors"
-                          title="بینینی وەسڵ و پرینت"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReturnForPrint(r)}
+                            className="p-1.5 rounded-lg bg-[#F5F5F7] hover:bg-[#EAEAEA] text-[#515154] hover:text-[#FF3B30] transition-colors"
+                            title="بینینی وەسڵ و پرینت"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          {hasAccess('settings') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`گەڕاوەی #${r.manualReceiptNo} بخرێتە سەبەتەی سۆفت دیلیت؟`)) {
+                                  softDeleteRecord('RETURN', r.id, 'سڕینەوەی خێرا لە تۆماری گەڕاوە');
+                                }
+                              }}
+                              className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                              title="سۆفت دیلیت"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

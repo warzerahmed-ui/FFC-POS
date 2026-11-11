@@ -148,7 +148,7 @@ const MENU_GROUPS: MenuGroup[] = [
 ];
 
 export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => {
-  const { currentUser, hasAccess, logout, factorySettings } = useApp();
+  const { currentUser, hasAccess, logout, factorySettings, cloudSyncStatus, lastSyncedAt, syncNow } = useApp();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -366,11 +366,42 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
 
         {/* Left Side (RTL End): Live Badges, Settings, Profile & Sign Out */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Cloud Live Pill */}
-          <div className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#10B981]/25 text-[#047857] text-[11px] font-bold">
-            <Cloud className="w-3.5 h-3.5 text-[#10B981]" />
-            <span>سیستەم چالاکە</span>
-          </div>
+          {/* Cloud D1 Sync Live Pill */}
+          <button
+            type="button"
+            onClick={() => syncNow()}
+            title={lastSyncedAt ? `دوایین سینک: ${lastSyncedAt}` : 'کلیک بکە بۆ سینککردن لەگەڵ Cloudflare D1'}
+            className={`hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+              cloudSyncStatus === 'SYNCED'
+                ? 'bg-[#ECFDF5] border-[#10B981]/25 text-[#047857]'
+                : cloudSyncStatus === 'SYNCING'
+                ? 'bg-[#EFF6FF] border-[#3B82F6]/30 text-[#1D4ED8]'
+                : cloudSyncStatus === 'ERROR'
+                ? 'bg-[#FEF2F2] border-[#EF4444]/30 text-[#B91C1C]'
+                : 'bg-[#FFFBEB] border-[#F59E0B]/30 text-[#B45309]'
+            }`}
+          >
+            <Cloud
+              className={`w-3.5 h-3.5 ${
+                cloudSyncStatus === 'SYNCED'
+                  ? 'text-[#10B981]'
+                  : cloudSyncStatus === 'SYNCING'
+                  ? 'text-[#3B82F6] animate-pulse'
+                  : cloudSyncStatus === 'ERROR'
+                  ? 'text-[#EF4444]'
+                  : 'text-[#F59E0B]'
+              }`}
+            />
+            <span>
+              {cloudSyncStatus === 'SYNCED'
+                ? `D1 هاوئاهەنگە${lastSyncedAt ? ` (${lastSyncedAt})` : ''}`
+                : cloudSyncStatus === 'SYNCING'
+                ? 'لە سینکدایە...'
+                : cloudSyncStatus === 'ERROR'
+                ? 'هەڵەی D1 سینک'
+                : 'لۆکاڵ (ئۆفلاین)'}
+            </span>
+          </button>
 
           {/* Live Date & Clock Pill */}
           <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F8FAFC] border border-slate-200/90 text-slate-600 text-[11px] font-semibold tabular-nums">

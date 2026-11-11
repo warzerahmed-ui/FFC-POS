@@ -129,6 +129,8 @@ export const POSView: React.FC = () => {
     addBranchExpense,
     updateBranchStockItem,
     parseWeightBarcode,
+    softDeleteRecord,
+    hasAccess,
   } = useApp();
 
   // Apple Segmented Tabs
@@ -1360,6 +1362,20 @@ export const POSView: React.FC = () => {
                         <Printer className="w-3.5 h-3.5" />
                         چاپ
                       </button>
+                      {hasAccess('settings') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`وەسڵی شۆرۆم #${sale.saleNo} بخرێتە سەبەتەی سۆفت دیلیت و کۆگا/قەرز بگەڕێندرێتەوە؟`)) {
+                              softDeleteRecord('POS_SALE', sale.id, 'سڕینەوەی خێرا لە سندوقی شۆرۆم');
+                            }
+                          }}
+                          className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                          title="سۆفت دیلیت"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   INITIAL_PRODUCTS,
   INITIAL_INTAKES,
@@ -161,6 +161,11 @@ interface AppContextType {
   // Full System Backup & Restore
   exportSystemBackup: () => string;
   importSystemBackup: (jsonStr: string) => { ok: boolean; error?: string; stats?: string };
+
+  // Cloudflare D1 Cloud Sync
+  cloudSyncStatus: 'SYNCING' | 'SYNCED' | 'LOCAL_ONLY' | 'ERROR';
+  lastSyncedAt: string | null;
+  syncNow: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -344,6 +349,205 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [factorySettings.factoryName, factorySettings.shortCode]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TRASH_ITEMS, JSON.stringify(trashItems)); }, [trashItems]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify(activityLogs)); }, [activityLogs]);
+
+  // ==========================================
+  // CLOUDFLARE D1 CLOUD SYNC ENGINE
+  // ==========================================
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'SYNCING' | 'SYNCED' | 'LOCAL_ONLY' | 'ERROR'>('SYNCING');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const isHydratedFromCloudRef = useRef(false);
+  const skipNextPushRef = useRef(false);
+  const lastServerUpdatedAtRef = useRef<string | null>(null);
+  const pushTimerRef = useRef<number | null>(null);
+
+  const buildSnapshot = useCallback(
+    () => ({
+      products,
+      intakes,
+      yields,
+      customers,
+      suppliers,
+      dispatches,
+      returns,
+      expenses,
+      vouchers,
+      posSales,
+      branchStock,
+      branchDeliveries,
+      branchExpenses,
+      custodyTransfers,
+      settlements,
+      users,
+      factorySettings,
+      trashItems,
+      activityLogs,
+    }),
+    [
+      products,
+      intakes,
+      yields,
+      customers,
+      suppliers,
+      dispatches,
+      returns,
+      expenses,
+      vouchers,
+      posSales,
+      branchStock,
+      branchDeliveries,
+      branchExpenses,
+      custodyTransfers,
+      settlements,
+      users,
+      factorySettings,
+      trashItems,
+      activityLogs,
+    ]
+  );
+
+  const applyCloudState = useCallback((d: Record<string, unknown>) => {
+    skipNextPushRef.current = true;
+    if (Array.isArray(d.products)) setProducts(d.products as ProductItem[]);
+    if (Array.isArray(d.intakes)) setIntakes(d.intakes as LiveIntake[]);
+    if (Array.isArray(d.yields)) setYields(d.yields as YieldRecord[]);
+    if (Array.isArray(d.customers)) setCustomers(d.customers as Customer[]);
+    if (Array.isArray(d.suppliers)) setSuppliers(d.suppliers as Supplier[]);
+    if (Array.isArray(d.dispatches)) setDispatches(d.dispatches as DispatchOrder[]);
+    if (Array.isArray(d.returns)) setReturns(d.returns as ReturnOrder[]);
+    if (Array.isArray(d.expenses)) setExpenses(d.expenses as ExpenseRecord[]);
+    if (Array.isArray(d.vouchers)) setVouchers(d.vouchers as PaymentVoucher[]);
+    if (Array.isArray(d.posSales)) setPosSales(d.posSales as POSSale[]);
+    if (Array.isArray(d.branchStock)) setBranchStock(d.branchStock as BranchStockItem[]);
+    if (Array.isArray(d.branchDeliveries)) setBranchDeliveries(d.branchDeliveries as BranchDelivery[]);
+    if (Array.isArray(d.branchExpenses)) setBranchExpenses(d.branchExpenses as BranchExpense[]);
+    if (Array.isArray(d.custodyTransfers)) setCustodyTransfers(d.custodyTransfers as CustodyTransfer[]);
+    if (Array.isArray(d.settlements)) setSettlements(d.settlements as DailySettlement[]);
+    if (Array.isArray(d.users)) {
+      const nextUsers = d.users as User[];
+      setUsers(nextUsers);
+      setCurrentUser(prev => {
+        const refreshed = nextUsers.find(u => u.id === prev.id || u.phone === prev.phone);
+        return refreshed || prev;
+      });
+    }
+    if (d.factorySettings && typeof d.factorySettings === 'object') {
+      setFactorySettings(prev => ({ ...prev, ...(d.factorySettings as Partial<FactorySettings>) }));
+    }
+    if (Array.isArray(d.trashItems)) setTrashItems(d.trashItems as SoftDeletedItem[]);
+    if (Array.isArray(d.activityLogs)) setActivityLogs(d.activityLogs as ActivityLogEntry[]);
+  }, []);
+
+  const pushStateToD1 = useCallback(async (snapshot: Record<string, unknown>) => {
+    try {
+      setCloudSyncStatus('SYNCING');
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: snapshot }),
+      });
+      if (!res.ok) {
+        setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
+        return;
+      }
+      const data = (await res.json()) as { ok?: boolean; serverUpdatedAt?: string };
+      if (data.ok) {
+        lastServerUpdatedAtRef.current = data.serverUpdatedAt || new Date().toISOString();
+        setLastSyncedAt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+        setCloudSyncStatus('SYNCED');
+      } else {
+        setCloudSyncStatus('ERROR');
+      }
+    } catch {
+      setCloudSyncStatus('LOCAL_ONLY');
+    }
+  }, []);
+
+  const pullStateFromD1 = useCallback(
+    async (initializeIfEmpty = false) => {
+      try {
+        const res = await fetch('/api/sync', { cache: 'no-store' });
+        if (!res.ok) {
+          setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
+          return;
+        }
+        const data = (await res.json()) as {
+          ok?: boolean;
+          empty?: boolean;
+          serverUpdatedAt?: string | null;
+          state?: Record<string, unknown>;
+        };
+        if (!data.ok) {
+          setCloudSyncStatus('ERROR');
+          return;
+        }
+        if (data.empty) {
+          if (initializeIfEmpty) {
+            await pushStateToD1(buildSnapshot());
+          }
+          return;
+        }
+        if (data.state && data.serverUpdatedAt !== lastServerUpdatedAtRef.current) {
+          applyCloudState(data.state);
+          lastServerUpdatedAtRef.current = data.serverUpdatedAt || null;
+        }
+        setLastSyncedAt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+        setCloudSyncStatus('SYNCED');
+      } catch {
+        setCloudSyncStatus('LOCAL_ONLY');
+      }
+    },
+    [applyCloudState, buildSnapshot, pushStateToD1]
+  );
+
+  // Initial D1 hydration + 20s background pull from other devices
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      await pullStateFromD1(true);
+      if (active) {
+        isHydratedFromCloudRef.current = true;
+      }
+    })();
+
+    const pollInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && pushTimerRef.current === null) {
+        pullStateFromD1(false);
+      }
+    }, 20000);
+
+    return () => {
+      active = false;
+      window.clearInterval(pollInterval);
+    };
+  }, [pullStateFromD1]);
+
+  // Debounced auto-save to Cloudflare D1 whenever local state changes
+  const snapshotObj = useMemo(() => buildSnapshot(), [buildSnapshot]);
+  useEffect(() => {
+    if (!isHydratedFromCloudRef.current) return;
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false;
+      return;
+    }
+    if (pushTimerRef.current !== null) {
+      window.clearTimeout(pushTimerRef.current);
+    }
+    pushTimerRef.current = window.setTimeout(() => {
+      pushTimerRef.current = null;
+      pushStateToD1(snapshotObj);
+    }, 600);
+
+    return () => {
+      if (pushTimerRef.current !== null) {
+        window.clearTimeout(pushTimerRef.current);
+        pushTimerRef.current = null;
+      }
+    };
+  }, [snapshotObj, pushStateToD1]);
+
+  const syncNow = useCallback(async () => {
+    await pushStateToD1(buildSnapshot());
+  }, [pushStateToD1, buildSnapshot]);
 
   const recordActivity = (
     category: ActivityCategory,
@@ -1651,6 +1855,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         parseWeightBarcode,
         exportSystemBackup,
         importSystemBackup,
+        cloudSyncStatus,
+        lastSyncedAt,
+        syncNow,
       }}
     >
       {children}

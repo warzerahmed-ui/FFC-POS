@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Truck, Plus, FileText, Search, X, Check, Scissors, ArrowLeft } from 'lucide-react';
+import { Truck, Plus, FileText, Search, X, Check, Scissors, ArrowLeft, Trash2 } from 'lucide-react';
 import { TabType } from '../../types';
 
 interface LiveIntakeViewProps {
@@ -12,7 +12,7 @@ export const LiveIntakeView: React.FC<LiveIntakeViewProps> = ({
   onNavigate,
   onSendToSlaughter,
 }) => {
-  const { intakes, suppliers, addIntake, addSupplier } = useApp();
+  const { intakes, suppliers, addIntake, addSupplier, softDeleteRecord, hasAccess } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -255,26 +255,42 @@ export const LiveIntakeView: React.FC<LiveIntakeViewProps> = ({
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    {intake.remainingLiveWeightKg > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onSendToSlaughter
-                            ? onSendToSlaughter(intake.id)
-                            : onNavigate?.('production')
-                        }
-                        className="px-3 py-1.5 rounded-full bg-[#5856D6]/12 hover:bg-[#5856D6] text-[#5856D6] hover:text-white font-bold text-[11px] inline-flex items-center gap-1 transition-all"
-                        title={`ماوە: ${intake.remainingLiveWeightKg} کگم`}
-                      >
-                        <Scissors className="w-3 h-3" />
-                        سەربڕین ({intake.remainingLiveWeightKg.toLocaleString()} کگم)
-                      </button>
-                    ) : (
-                      <span className="text-[10px] bg-[#34C759]/12 text-[#248A3D] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        تەواو سەربڕاوە
-                      </span>
-                    )}
+                    <div className="flex items-center justify-center gap-1.5">
+                      {intake.remainingLiveWeightKg > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSendToSlaughter
+                              ? onSendToSlaughter(intake.id)
+                              : onNavigate?.('production')
+                          }
+                          className="px-3 py-1.5 rounded-full bg-[#5856D6]/12 hover:bg-[#5856D6] text-[#5856D6] hover:text-white font-bold text-[11px] inline-flex items-center gap-1 transition-all"
+                          title={`ماوە: ${intake.remainingLiveWeightKg} کگم`}
+                        >
+                          <Scissors className="w-3 h-3" />
+                          سەربڕین ({intake.remainingLiveWeightKg.toLocaleString()} کگم)
+                        </button>
+                      ) : (
+                        <span className="text-[10px] bg-[#34C759]/12 text-[#248A3D] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          تەواو سەربڕاوە
+                        </span>
+                      )}
+                      {hasAccess('settings') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`وەسڵی وەرگرتنی #${intake.manualReceiptNo} بخرێتە سەبەتەی سۆفت دیلیت؟`)) {
+                              softDeleteRecord('INTAKE', intake.id, 'سڕینەوەی خێرا لە وەرگرتنی کێڵگە');
+                            }
+                          }}
+                          className="p-1.5 rounded-lg bg-[#FF3B30]/10 hover:bg-[#FF3B30] text-[#FF3B30] hover:text-white transition-colors"
+                          title="سۆفت دیلیت"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

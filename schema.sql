@@ -152,3 +152,10 @@ CREATE TABLE IF NOT EXISTS pos_sales (
     cashier_name TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 10. هاوبەشکردنی تەواوی داتاکانی سیستەم لە نێوان ئامێرەکان (D1 Cloud State Sync)
+CREATE TABLE IF NOT EXISTS app_state (
+    state_key TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

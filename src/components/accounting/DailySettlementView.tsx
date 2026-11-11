@@ -16,6 +16,7 @@ import {
   X,
   ArrowLeftRight,
   Clock,
+  Download,
 } from 'lucide-react';
 import { DailySettlement } from '../../types';
 import { FactoryLogo } from '../layout/FactoryLogo';
@@ -146,6 +147,18 @@ export const DailySettlementView: React.FC = () => {
         expensesList = branchExpenses
           .filter(e => e.date.slice(0, 10) === selectedDate)
           .map(e => ({ id: e.id, title: e.title, amount: e.amount, time: e.time }));
+
+        const branchReturnsToday = returns.filter(
+          r => r.date.slice(0, 10) === selectedDate && r.sourceType === 'BRANCH'
+        );
+        returnsCount = branchReturnsToday.length;
+        returnsWeightKg = Number(
+          branchReturnsToday.reduce((s, r) => s + r.totalWeightKg, 0).toFixed(2)
+        );
+        returnsAmount = branchReturnsToday.reduce(
+          (s, r) => s + (r.totalCustomerDeduction ?? r.totalLossAmount),
+          0
+        );
       } else {
         const shortName = accountName.split(' (')[0];
         const dayRep = dispatches.filter(
@@ -1119,6 +1132,44 @@ export const DailySettlementView: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const rows = [
+                      [factorySettings.factoryName, 'کەشفی حسابی فرۆشی ڕۆژانە', statementAccount.accountName, selectedDate],
+                      ['ژ. وەسڵ', 'کات', 'کڕیار / وردەکاری', 'شێواز', 'کێش (کگم)', 'بڕی پارە (د.ع)'],
+                      ...statementAccount.receipts.map(r => [
+                        r.receiptNo,
+                        r.time,
+                        r.partyLabel,
+                        r.paymentKind,
+                        String(r.weightKg),
+                        String(r.amount),
+                      ]),
+                      ['---', '---', '---', '---', '---', '---'],
+                      ['کۆی فرۆشتن', '', '', '', String(statementAccount.totalWeightKg), String(statementAccount.totalSalesAmount)],
+                      ['فرۆشی کاش', '', '', '', '', String(statementAccount.cashSalesAmount)],
+                      ['فرۆشی قەرز', '', '', '', '', String(statementAccount.creditSalesAmount)],
+                      ['فرۆشی کارت / FIB', '', '', '', '', String(statementAccount.cardSalesAmount)],
+                      ['گەڕاوەی ٣ ڕۆژ', '', `${statementAccount.returnsCount} وەسڵ`, '', String(statementAccount.returnsWeightKg), String(statementAccount.returnsAmount)],
+                      ['پێویست بوو بگەڕێتەوە', '', '', '', '', String(statementAccount.expectedTotalToday)],
+                      ['پارەی گەڕاوە', '', '', '', '', String(statementAccount.returnedTotalToday)],
+                      ['جیاوازی', '', '', '', '', String(statementAccount.varianceToday)],
+                    ];
+                    const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `DailySettlement-${selectedDate}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-3.5 py-2 rounded-full bg-[#34C759]/12 hover:bg-[#34C759]/20 text-[#248A3D] font-bold text-xs flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Excel / CSV
+                </button>
                 <button
                   type="button"
                   onClick={() => window.print()}
