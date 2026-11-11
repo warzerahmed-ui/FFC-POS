@@ -88,10 +88,13 @@ export const SettingsView: React.FC = () => {
     clearActivityLogs,
     exportSystemBackup,
     importSystemBackup,
+    resetToCleanStart,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('FACTORY_INFO');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warn' } | null>(null);
+  const [showCleanStartModal, setShowCleanStartModal] = useState(false);
+  const [cleanStartClearParties, setCleanStartClearParties] = useState(false);
 
   const showToast = (msg: string, type: 'success' | 'warn' = 'success') => {
     setToast({ msg, type });
@@ -862,6 +865,18 @@ export const SettingsView: React.FC = () => {
                     className="hidden"
                   />
                 </label>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCleanStartClearParties(false);
+                    setShowCleanStartModal(true);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#FFF2F0] hover:bg-[#FFE5E0] text-[#D70015] font-bold text-xs flex items-center justify-center gap-2 border border-[#FF3B30]/20 transition-all cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  سفرکردنەوەی داتای تێست (دەستپێکی پاک)
+                </button>
               </div>
             </div>
           </div>
@@ -1649,6 +1664,79 @@ export const SettingsView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clean Start Confirmation Modal */}
+      {showCleanStartModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="apple-sheet bg-white rounded-[24px] max-w-md w-full p-6 shadow-2xl border border-black/[0.06] space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF3B30]/12 text-[#D70015] flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#1D1D1F]">
+                    سفرکردنەوەی داتای تێست (دەستپێکی پاک)
+                  </h3>
+                  <p className="text-[11px] text-[#86868B]">
+                    بۆ ئامادەکردنی سیستەم بۆ کاری ڕاستەقینەی کارگە
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCleanStartModal(false)}
+                className="p-1.5 rounded-full hover:bg-black/[0.05] text-[#86868B] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#FFF2F0] border border-[#FF3B30]/20 text-xs text-[#1D1D1F] leading-relaxed space-y-1.5">
+              <div className="font-bold text-[#D70015]">ئەم کردارە ئەمانە پاک دەکاتەوە:</div>
+              <ul className="list-disc pr-4 space-y-0.5 text-[11px] text-[#515154]">
+                <li>هەموو وەسڵەکانی وەرگرتن، سەربڕین، مەندوب، گەڕاوە و فرۆشی POS</li>
+                <li>تەسفییەکان، سەنەدەکان، خەرجییەکان، عەهدەکان و سەبەتەی سۆفت دیلیت</li>
+                <li>کێشی کۆگاکان و قەرزی کڕیار و کێڵگەکان سفر دەکرێنەوە</li>
+              </ul>
+              <div className="text-[11px] font-semibold text-[#248A3D] pt-1">
+                ✓ ناوی بەرهەمەکان، نرخەکان، ئەکاونتەکان و زانیاری کارگە وەک خۆیان دەمێننەوە.
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2.5 p-3 rounded-2xl bg-[#F5F5F7] cursor-pointer text-xs font-bold text-[#1D1D1F]">
+              <input
+                type="checkbox"
+                checked={cleanStartClearParties}
+                onChange={e => setCleanStartClearParties(e.target.checked)}
+                className="w-4 h-4 accent-[#D70015]"
+              />
+              <span>لیستی کڕیاران و کێڵگە تێستەکانیش بە تەواوی بسڕەوە</span>
+            </label>
+
+            <div className="flex gap-2.5 pt-2 border-t border-black/[0.06]">
+              <button
+                type="button"
+                onClick={() => setShowCleanStartModal(false)}
+                className="w-1/2 py-2.5 bg-[#F5F5F7] text-[#515154] rounded-full font-semibold text-xs cursor-pointer"
+              >
+                پاشگەزبوونەوە
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetToCleanStart({ clearParties: cleanStartClearParties });
+                  setShowCleanStartModal(false);
+                  showToast('سیستەم بە تەواوی پاک کرایەوە و ئامادەی کارە', 'success');
+                }}
+                className="w-1/2 py-2.5 bg-[#D70015] hover:bg-[#B80012] text-white font-bold rounded-full text-xs cursor-pointer"
+              >
+                بەڵێ، سفری بکەرەوە
+              </button>
+            </div>
           </div>
         </div>
       )}

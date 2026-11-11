@@ -155,9 +155,14 @@ interface AppContextType {
   // Barcode decoding utility
   parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
 
-  // Full System Backup & Restore
+  // Full System Backup & Restore & Clean Start
   exportSystemBackup: () => string;
   importSystemBackup: (jsonStr: string) => { ok: boolean; error?: string; stats?: string };
+  resetToCleanStart: (options?: { clearParties?: boolean }) => void;
+  changeOwnPassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; error?: string }>;
 
   // Cloudflare D1 Cloud Sync
   cloudSyncStatus: 'SYNCING' | 'SYNCED' | 'LOCAL_ONLY' | 'ERROR';
@@ -308,13 +313,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Default to Admin (Super Admin stays hidden unless explicitly logged in with 07701441068 / 441068)
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (saved) {
       try { return JSON.parse(saved); } catch {}
     }
-    return INITIAL_USERS[1];
+    return INITIAL_USERS[0];
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
@@ -356,6 +360,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isHydratedFromCloudRef = useRef(false);
   const skipNextPushRef = useRef(false);
   const lastServerUpdatedAtRef = useRef<string | null>(null);
+  const keyVersionsRef = useRef<Record<string, string>>({});
+  const lastSyncedJsonByKeyRef = useRef<Record<string, string>>({});
   const pushTimerRef = useRef<number | null>(null);
 
   const buildSnapshot = useCallback(
@@ -403,67 +409,180 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]
   );
 
-  const applyCloudState = useCallback((d: Record<string, unknown>) => {
-    skipNextPushRef.current = true;
-    if (Array.isArray(d.products)) setProducts(d.products as ProductItem[]);
-    if (Array.isArray(d.intakes)) setIntakes(d.intakes as LiveIntake[]);
-    if (Array.isArray(d.yields)) setYields(d.yields as YieldRecord[]);
-    if (Array.isArray(d.customers)) setCustomers(d.customers as Customer[]);
-    if (Array.isArray(d.suppliers)) setSuppliers(d.suppliers as Supplier[]);
-    if (Array.isArray(d.dispatches)) setDispatches(d.dispatches as DispatchOrder[]);
-    if (Array.isArray(d.returns)) setReturns(d.returns as ReturnOrder[]);
-    if (Array.isArray(d.expenses)) setExpenses(d.expenses as ExpenseRecord[]);
-    if (Array.isArray(d.vouchers)) setVouchers(d.vouchers as PaymentVoucher[]);
-    if (Array.isArray(d.posSales)) setPosSales(d.posSales as POSSale[]);
-    if (Array.isArray(d.branchStock)) setBranchStock(d.branchStock as BranchStockItem[]);
-    if (Array.isArray(d.branchDeliveries)) setBranchDeliveries(d.branchDeliveries as BranchDelivery[]);
-    if (Array.isArray(d.branchExpenses)) setBranchExpenses(d.branchExpenses as BranchExpense[]);
-    if (Array.isArray(d.custodyTransfers)) setCustodyTransfers(d.custodyTransfers as CustodyTransfer[]);
-    if (Array.isArray(d.settlements)) setSettlements(d.settlements as DailySettlement[]);
-    if (Array.isArray(d.users)) {
-      const nextUsers = d.users as User[];
-      setUsers(nextUsers);
-      setCurrentUser(prev => {
-        const refreshed = nextUsers.find(u => u.id === prev.id || u.phone === prev.phone);
-        return refreshed || prev;
-      });
-    }
-    if (d.factorySettings && typeof d.factorySettings === 'object') {
-      setFactorySettings(prev => ({ ...prev, ...(d.factorySettings as Partial<FactorySettings>) }));
-    }
-    if (Array.isArray(d.trashItems)) setTrashItems(d.trashItems as SoftDeletedItem[]);
-    if (Array.isArray(d.activityLogs)) setActivityLogs(d.activityLogs as ActivityLogEntry[]);
-  }, []);
+  const applyCloudState = useCallback(
+    (d: Record<string, unknown>, incomingVersions?: Record<string, string>) => {
+      skipNextPushRef.current = true;
+      const recordKey = (key: string, val: unknown) => {
+        try {
+          lastSyncedJsonByKeyRef.current[key] = JSON.stringify(val);
+        } catch {
+          // ignore
+        }
+      };
 
-  const pushStateToD1 = useCallback(async (snapshot: Record<string, unknown>) => {
-    try {
-      setCloudSyncStatus('SYNCING');
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ state: snapshot }),
-      });
-      if (res.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        setIsAuthenticated(false);
-        return;
+      if (Array.isArray(d.products)) {
+        setProducts(d.products as ProductItem[]);
+        recordKey('products', d.products);
       }
-      if (!res.ok) {
-        setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
-        return;
+      if (Array.isArray(d.intakes)) {
+        setIntakes(d.intakes as LiveIntake[]);
+        recordKey('intakes', d.intakes);
       }
-      const data = (await res.json()) as { ok?: boolean; serverUpdatedAt?: string };
-      if (data.ok) {
-        lastServerUpdatedAtRef.current = data.serverUpdatedAt || new Date().toISOString();
-        setLastSyncedAt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+      if (Array.isArray(d.yields)) {
+        setYields(d.yields as YieldRecord[]);
+        recordKey('yields', d.yields);
+      }
+      if (Array.isArray(d.customers)) {
+        setCustomers(d.customers as Customer[]);
+        recordKey('customers', d.customers);
+      }
+      if (Array.isArray(d.suppliers)) {
+        setSuppliers(d.suppliers as Supplier[]);
+        recordKey('suppliers', d.suppliers);
+      }
+      if (Array.isArray(d.dispatches)) {
+        setDispatches(d.dispatches as DispatchOrder[]);
+        recordKey('dispatches', d.dispatches);
+      }
+      if (Array.isArray(d.returns)) {
+        setReturns(d.returns as ReturnOrder[]);
+        recordKey('returns', d.returns);
+      }
+      if (Array.isArray(d.expenses)) {
+        setExpenses(d.expenses as ExpenseRecord[]);
+        recordKey('expenses', d.expenses);
+      }
+      if (Array.isArray(d.vouchers)) {
+        setVouchers(d.vouchers as PaymentVoucher[]);
+        recordKey('vouchers', d.vouchers);
+      }
+      if (Array.isArray(d.posSales)) {
+        setPosSales(d.posSales as POSSale[]);
+        recordKey('posSales', d.posSales);
+      }
+      if (Array.isArray(d.branchStock)) {
+        setBranchStock(d.branchStock as BranchStockItem[]);
+        recordKey('branchStock', d.branchStock);
+      }
+      if (Array.isArray(d.branchDeliveries)) {
+        setBranchDeliveries(d.branchDeliveries as BranchDelivery[]);
+        recordKey('branchDeliveries', d.branchDeliveries);
+      }
+      if (Array.isArray(d.branchExpenses)) {
+        setBranchExpenses(d.branchExpenses as BranchExpense[]);
+        recordKey('branchExpenses', d.branchExpenses);
+      }
+      if (Array.isArray(d.custodyTransfers)) {
+        setCustodyTransfers(d.custodyTransfers as CustodyTransfer[]);
+        recordKey('custodyTransfers', d.custodyTransfers);
+      }
+      if (Array.isArray(d.settlements)) {
+        setSettlements(d.settlements as DailySettlement[]);
+        recordKey('settlements', d.settlements);
+      }
+      if (Array.isArray(d.users)) {
+        const nextUsers = d.users as User[];
+        setUsers(nextUsers);
+        recordKey('users', nextUsers);
+        setCurrentUser(prev => {
+          if (prev.isSuperAdmin || prev.role === 'SUPER_ADMIN') return prev;
+          const refreshed = nextUsers.find(u => u.id === prev.id);
+          return refreshed ? { ...prev, ...refreshed } : prev;
+        });
+      }
+      if (d.factorySettings && typeof d.factorySettings === 'object') {
+        setFactorySettings(prev => {
+          const merged = { ...prev, ...(d.factorySettings as Partial<FactorySettings>) };
+          recordKey('factorySettings', merged);
+          return merged;
+        });
+      }
+      if (Array.isArray(d.trashItems)) {
+        setTrashItems(d.trashItems as SoftDeletedItem[]);
+        recordKey('trashItems', d.trashItems);
+      }
+      if (Array.isArray(d.activityLogs)) {
+        setActivityLogs(d.activityLogs as ActivityLogEntry[]);
+        recordKey('activityLogs', d.activityLogs);
+      }
+      if (incomingVersions) {
+        keyVersionsRef.current = { ...keyVersionsRef.current, ...incomingVersions };
+      }
+    },
+    []
+  );
+
+  const pushStateToD1 = useCallback(
+    async (snapshot: Record<string, unknown>, forceFull = false) => {
+      const delta: Record<string, unknown> = {};
+      const baseVersions: Record<string, string> = {};
+      const serializedByKey: Record<string, string> = {};
+
+      for (const [key, val] of Object.entries(snapshot)) {
+        if (val === undefined) continue;
+        const json = JSON.stringify(val);
+        serializedByKey[key] = json;
+        if (forceFull || lastSyncedJsonByKeyRef.current[key] !== json) {
+          delta[key] = val;
+          if (keyVersionsRef.current[key]) {
+            baseVersions[key] = keyVersionsRef.current[key];
+          }
+        }
+      }
+
+      if (Object.keys(delta).length === 0) {
         setCloudSyncStatus('SYNCED');
-      } else {
-        setCloudSyncStatus('ERROR');
+        return;
       }
-    } catch {
-      setCloudSyncStatus('LOCAL_ONLY');
-    }
-  }, []);
+
+      try {
+        setCloudSyncStatus('SYNCING');
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+          body: JSON.stringify({ state: delta, baseVersions }),
+        });
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          setIsAuthenticated(false);
+          return;
+        }
+        if (!res.ok) {
+          setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
+          return;
+        }
+        const data = (await res.json()) as {
+          ok?: boolean;
+          serverUpdatedAt?: string;
+          keyVersions?: Record<string, string>;
+          conflicts?: string[];
+          conflictState?: Record<string, unknown>;
+        };
+        if (data.ok) {
+          if (data.keyVersions) {
+            keyVersionsRef.current = { ...keyVersionsRef.current, ...data.keyVersions };
+          }
+          const conflictSet = new Set(data.conflicts || []);
+          for (const key of Object.keys(delta)) {
+            if (!conflictSet.has(key)) {
+              lastSyncedJsonByKeyRef.current[key] = serializedByKey[key];
+            }
+          }
+          if (conflictSet.size > 0 && data.conflictState) {
+            applyCloudState(data.conflictState, data.keyVersions);
+          }
+          lastServerUpdatedAtRef.current = data.serverUpdatedAt || new Date().toISOString();
+          setLastSyncedAt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+          setCloudSyncStatus('SYNCED');
+        } else {
+          setCloudSyncStatus('ERROR');
+        }
+      } catch {
+        setCloudSyncStatus('LOCAL_ONLY');
+      }
+    },
+    [applyCloudState]
+  );
 
   const pullStateFromD1 = useCallback(
     async (initializeIfEmpty = false) => {
@@ -485,6 +604,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ok?: boolean;
           empty?: boolean;
           serverUpdatedAt?: string | null;
+          keyVersions?: Record<string, string>;
           state?: Record<string, unknown>;
         };
         if (!data.ok) {
@@ -493,12 +613,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (data.empty) {
           if (initializeIfEmpty) {
-            await pushStateToD1(buildSnapshot());
+            await pushStateToD1(buildSnapshot(), true);
           }
           return;
         }
         if (data.state && data.serverUpdatedAt !== lastServerUpdatedAtRef.current) {
-          applyCloudState(data.state);
+          applyCloudState(data.state, data.keyVersions);
           lastServerUpdatedAtRef.current = data.serverUpdatedAt || null;
         }
         setLastSyncedAt(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
@@ -647,7 +767,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     recordActivity('AUTH', 'LOGOUT', 'چوونەدەرەوە لە سیستەم', 'بەکارهێنەر لە سیستەم چووە دەرەوە');
     localStorage.removeItem(TOKEN_KEY);
+    keyVersionsRef.current = {};
+    lastSyncedJsonByKeyRef.current = {};
     setIsAuthenticated(false);
+  };
+
+  const changeOwnPassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      if (res.status === 401) {
+        return { ok: false, error: 'وشەی نهێنی ئێستا هەڵەیە' };
+      }
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        return { ok: false, error: data.error || 'هەڵە لە نوێکردنەوەی وشەی نهێنی' };
+      }
+      recordActivity('AUTH', 'UPDATE', 'گۆڕینی وشەی نهێنی', `${currentUser.name} وشەی نهێنییەکەی گۆڕی`);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'پەیوەندی بە سێرڤەرەوە نییە' };
+    }
   };
 
   const parseWeightBarcode = (barcodeStr: string) => {
@@ -1183,7 +1332,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!userData.name.trim() || !cleanPhone || !userData.password?.trim()) {
       return { ok: false, error: 'تکایە ناو، ژمارەی مۆبایل و وشەی نهێنی بنووسە' };
     }
-    if (cleanPhone === '07701441068' || users.some(u => u.phone.trim() === cleanPhone)) {
+    if (users.some(u => u.phone.trim() === cleanPhone)) {
       return { ok: false, error: 'ئەم ژمارە مۆبایلە پێشتر تۆمارکراوە!' };
     }
     const newUser: User = {
@@ -1216,10 +1365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (updates.phone) {
       const cleanPhone = updates.phone.trim();
-      if (
-        cleanPhone === '07701441068' ||
-        users.some(u => u.id !== userId && u.phone.trim() === cleanPhone)
-      ) {
+      if (users.some(u => u.id !== userId && u.phone.trim() === cleanPhone)) {
         return { ok: false, error: 'ئەم ژمارە مۆبایلە بۆ ئەکاونتێکی تر بەکارهێنراوە' };
       }
     }
@@ -1704,19 +1850,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const repNames = useMemo(() => {
-    const defaults = [
-      'مەندوب شوان (هێڵی بەختیاری)',
-      'مەندوب هێمن (هێڵی تووی مەلیك)',
-      'مەندوب ئارام (هێڵی سەرچنار و ڕاپەڕین)',
-      'مەندوب کامەران (هێڵی عەربەت و شارەزوور)',
-    ];
     const set = new Set<string>();
     // 1. Active REP accounts configured in Settings
     users
       .filter(u => u.role === 'REP' && u.isActive !== false && u.name.trim())
       .forEach(u => set.add(u.name.trim()));
-    // 2. Default fleet lines + any historical names from transfers/dispatches/settlements
-    defaults.forEach(name => set.add(name));
+    // 2. Historical names from transfers/dispatches/settlements
     custodyTransfers
       .filter(t => t.holderType === 'REP' && t.holderName.trim())
       .forEach(t => set.add(t.holderName.trim()));
@@ -1806,6 +1945,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const resetToCleanStart = (options?: { clearParties?: boolean }) => {
+    setIntakes([]);
+    setYields([]);
+    setDispatches([]);
+    setReturns([]);
+    setExpenses([]);
+    setVouchers([]);
+    setPosSales([]);
+    setBranchDeliveries([]);
+    setBranchExpenses([]);
+    setCustodyTransfers([]);
+    setSettlements([]);
+    setTrashItems([]);
+    setProducts(prev => prev.map(p => ({ ...p, inStockKg: 0 })));
+    setBranchStock(prev => prev.map(b => ({ ...b, inStockKg: 0 })));
+    if (options?.clearParties) {
+      setCustomers([]);
+      setSuppliers([]);
+    } else {
+      setCustomers(prev => prev.map(c => ({ ...c, currentDebt: 0 })));
+      setSuppliers(prev => prev.map(s => ({ ...s, currentBalance: 0 })));
+    }
+    recordActivity(
+      'SETTINGS',
+      'PURGE',
+      'سفرکردنەوەی داتای تێست',
+      options?.clearParties
+        ? 'سەرجەم وەسڵ، کۆگا، قەرز و کڕیار/کێڵگە تێستەکان پاک کرانەوە بۆ دەستپێکی کار'
+        : 'سەرجەم وەسڵ، کۆگا و قەرزە تێستەکان سفر کرانەوە بۆ دەستپێکی کار'
+    );
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1862,6 +2033,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         parseWeightBarcode,
         exportSystemBackup,
         importSystemBackup,
+        resetToCleanStart,
+        changeOwnPassword,
         cloudSyncStatus,
         lastSyncedAt,
         syncNow,

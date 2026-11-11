@@ -21,6 +21,9 @@ import {
   Check,
   Cloud,
   Settings,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface MenubarProps {
@@ -148,10 +151,26 @@ const MENU_GROUPS: MenuGroup[] = [
 ];
 
 export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => {
-  const { currentUser, hasAccess, logout, factorySettings, cloudSyncStatus, lastSyncedAt, syncNow } = useApp();
+  const {
+    currentUser,
+    hasAccess,
+    logout,
+    changeOwnPassword,
+    factorySettings,
+    cloudSyncStatus,
+    lastSyncedAt,
+    syncNow,
+  } = useApp();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [currPwd, setCurrPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showCurrPwd, setShowCurrPwd] = useState(false);
+  const [pwdStatus, setPwdStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement>(null);
 
   // Live clock tick
@@ -210,12 +229,33 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
 
   const formattedDateTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} • ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const displayName =
-    currentUser?.role === 'SUPER_ADMIN' ? 'بەڕێوەبەری کارگە' : currentUser?.name || 'بەکارهێنەر';
-  const displayRole =
-    currentUser?.role === 'SUPER_ADMIN' ? 'بەڕێوەبەر' : currentUser?.roleTitleKu || '';
-  const avatarInitial =
-    currentUser?.role === 'SUPER_ADMIN' ? 'م' : currentUser?.name?.trim()?.[0] || 'ک';
+  const isSuper = Boolean(currentUser?.isSuperAdmin || currentUser?.role === 'SUPER_ADMIN');
+  const displayName = isSuper ? 'بەڕێوەبەری کارگە' : currentUser?.name || 'بەکارهێنەر';
+  const displayRole = isSuper ? 'بەڕێوەبەر' : currentUser?.roleTitleKu || '';
+  const avatarInitial = isSuper ? 'م' : currentUser?.name?.trim()?.[0] || 'ک';
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pwdSaving) return;
+    if (newPwd.trim().length < 4) {
+      setPwdStatus({ msg: 'وشەی نهێنی نوێ دەبێت لانیکەم ٤ پیت بێت', ok: false });
+      return;
+    }
+    if (newPwd.trim() !== confirmPwd.trim()) {
+      setPwdStatus({ msg: 'وشەی نهێنی نوێ و دووپاتکردنەوەکەی یەک ناگرنەوە', ok: false });
+      return;
+    }
+    setPwdSaving(true);
+    setPwdStatus(null);
+    const res = await changeOwnPassword(currPwd, newPwd);
+    setPwdSaving(false);
+    if (!res.ok) {
+      setPwdStatus({ msg: res.error || 'هەڵە لە گۆڕینی وشەی نهێنی', ok: false });
+      return;
+    }
+    setPwdStatus({ msg: 'وشەی نهێنی بە سەرکەوتوویی گۆڕدرا', ok: true });
+    setTimeout(() => setShowPwdModal(false), 1100);
+  };
 
   const ActiveBreadIcon = activeItemObj?.icon || LayoutDashboard;
 
@@ -427,7 +467,7 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
             </button>
           )}
 
-          {/* Profile Info */}
+          {/* Profile Info + Change Own Password (non-SuperAdmin) */}
           <div className="hidden sm:flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-full">
             <div className="w-8 h-8 rounded-full bg-[#EFF6FF] border border-[#3B82F6]/25 text-[#1D4ED8] flex items-center justify-center font-extrabold text-xs shrink-0">
               {avatarInitial}
@@ -440,6 +480,22 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
                 {displayRole}
               </div>
             </div>
+            {!isSuper && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrPwd('');
+                  setNewPwd('');
+                  setConfirmPwd('');
+                  setPwdStatus(null);
+                  setShowPwdModal(true);
+                }}
+                className="p-1.5 rounded-full bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200/90 text-slate-600 hover:text-[#1D4ED8] transition-all cursor-pointer"
+                title="گۆڕینی وشەی نهێنیی خۆم"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Crisp Red Outlined Sign Out Button */}
@@ -548,6 +604,120 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
               </div>
             </div>
           ))}
+          {!isSuper && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                setCurrPwd('');
+                setNewPwd('');
+                setConfirmPwd('');
+                setPwdStatus(null);
+                setShowPwdModal(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs bg-slate-50/70 text-slate-700 font-semibold hover:bg-slate-100"
+            >
+              <KeyRound className="w-4 h-4 shrink-0 text-[#0071E3]" />
+              <span>گۆڕینی وشەی نهێنیی خۆم</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Change Own Password Modal (non-SuperAdmin) */}
+      {showPwdModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="apple-sheet bg-white rounded-[24px] max-w-sm w-full p-6 shadow-2xl border border-black/[0.06]">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-black/[0.06]">
+              <h3 className="text-sm font-black text-[#1D1D1F] flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-[#0071E3]" />
+                گۆڕینی وشەی نهێنی
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPwdModal(false)}
+                className="p-1.5 rounded-full hover:bg-black/[0.05] text-[#86868B] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold mb-1">وشەی نهێنی ئێستا *</label>
+                <div className="relative">
+                  <input
+                    type={showCurrPwd ? 'text' : 'password'}
+                    required
+                    value={currPwd}
+                    onChange={e => setCurrPwd(e.target.value)}
+                    className="apple-input w-full px-3.5 py-2.5 pl-9 text-left font-bold"
+                    dir="ltr"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrPwd(v => !v)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#86868B]"
+                    tabIndex={-1}
+                  >
+                    {showCurrPwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold mb-1">وشەی نهێنی نوێ *</label>
+                <input
+                  type={showCurrPwd ? 'text' : 'password'}
+                  required
+                  minLength={4}
+                  value={newPwd}
+                  onChange={e => setNewPwd(e.target.value)}
+                  className="apple-input w-full px-3.5 py-2.5 text-left font-bold"
+                  dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="block font-bold mb-1">دووپاتکردنەوەی وشەی نهێنی نوێ *</label>
+                <input
+                  type={showCurrPwd ? 'text' : 'password'}
+                  required
+                  minLength={4}
+                  value={confirmPwd}
+                  onChange={e => setConfirmPwd(e.target.value)}
+                  className="apple-input w-full px-3.5 py-2.5 text-left font-bold"
+                  dir="ltr"
+                />
+              </div>
+
+              {pwdStatus && (
+                <div
+                  className={`p-2.5 rounded-xl font-bold text-center ${
+                    pwdStatus.ok
+                      ? 'bg-[#34C759]/12 text-[#248A3D]'
+                      : 'bg-[#FF3B30]/10 text-[#D70015]'
+                  }`}
+                >
+                  {pwdStatus.msg}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t border-black/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => setShowPwdModal(false)}
+                  className="w-1/2 py-2.5 bg-[#F5F5F7] text-[#515154] rounded-full font-semibold cursor-pointer"
+                >
+                  پاشگەزبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  disabled={pwdSaving}
+                  className="w-1/2 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] disabled:opacity-60 text-white font-bold rounded-full cursor-pointer"
+                >
+                  {pwdSaving ? 'چاوەڕێ بە...' : 'پاشەکەوتکردن'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

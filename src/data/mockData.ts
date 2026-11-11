@@ -18,16 +18,6 @@ import {
 } from '../types';
 
 export const INITIAL_USERS: User[] = [
-  // Super Admin: Master Admin (Hidden from system switchers/lists)
-  {
-    id: 'user-super-admin',
-    name: 'سوپەر ئەدمین',
-    phone: '07701441068',
-    role: 'SUPER_ADMIN',
-    roleTitleKu: 'سوپەر ئەدمین (دەسەڵاتی گشتی)',
-    isSuperAdmin: true,
-    avatarEmoji: '👑',
-  },
   // Manager / Admin
   {
     id: 'user-admin',
