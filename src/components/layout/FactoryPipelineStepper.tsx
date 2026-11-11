@@ -12,12 +12,15 @@ export const FactoryPipelineStepper: React.FC<FactoryPipelineStepperProps> = ({
   activeStage,
   onNavigate,
 }) => {
-  const { intakes, yields, products } = useApp();
+  const { intakes, yields, products, returns } = useApp();
 
   const totalLiveIntakeKg = intakes.reduce((sum, i) => sum + i.netWeightKg, 0);
   const pendingLiveKg = intakes.reduce((sum, i) => sum + i.remainingLiveWeightKg, 0);
   const totalDressedKg = yields.reduce((sum, y) => sum + y.dressedWeightKg, 0);
   const totalReadyKg = products.reduce((sum, p) => sum + p.inStockKg, 0);
+  const pendingReturnsCount = returns.filter(
+    r => !r.conversionStatus || r.conversionStatus === 'PENDING'
+  ).length;
 
   const stages = [
     {
@@ -43,9 +46,12 @@ export const FactoryPipelineStepper: React.FC<FactoryPipelineStepperProps> = ({
     {
       id: 'ready-for-sale' as const,
       stepNo: '٣',
-      title: 'ئامادە بۆ فرۆشتن',
+      title: 'کۆگای ئامادە (ئامادە بۆ فرۆشتن)',
       metric: `${totalReadyKg.toLocaleString()} کگم لە کۆگا`,
-      sub: 'ئامادەیە بۆ فرۆشتنی ڕاستەوخۆ و مەندوب',
+      sub:
+        pendingReturnsCount > 0
+          ? `${pendingReturnsCount} گەڕاوەی ٣ ڕۆژ چاوەڕوانی گۆڕینە`
+          : 'ناردنی ڕۆژانە بۆ فرۆشتن و گۆڕینی گەڕاوە',
       icon: PackageCheck,
       activeColor: 'bg-[#0071E3] text-white',
       idleBadge: 'bg-[#0071E3]/12 text-[#0071E3]',

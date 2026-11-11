@@ -65,6 +65,11 @@ interface AppContextType {
   addYieldRecord: (record: Omit<YieldRecord, 'id' | 'remainingAfterBatchKg'>) => void;
   addDispatch: (dispatch: Omit<DispatchOrder, 'id'>) => void;
   addReturn: (returnOrder: Omit<ReturnOrder, 'id'>) => void;
+  convertReturnOrder: (
+    returnId: string,
+    outputs: { productId: string; productName: string; weightKg: number }[],
+    notes?: string
+  ) => void;
   addExpense: (expense: Omit<ExpenseRecord, 'id'>) => void;
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
   addSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt'>) => void;
@@ -416,6 +421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...newReturn, 
       id,
       totalCustomerDeduction: deduction,
+      conversionStatus: newReturn.conversionStatus || 'PENDING',
     };
     setReturns(prev => [ret, ...prev]);
 
@@ -431,6 +437,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return c;
       }));
+    }
+  };
+
+  const convertReturnOrder = (
+    returnId: string,
+    outputs: { productId: string; productName: string; weightKg: number }[],
+    notes?: string
+  ) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    setReturns(prev =>
+      prev.map(r => {
+        if (r.id === returnId) {
+          return {
+            ...r,
+            conversionStatus: 'CONVERTED',
+            convertedAt: today,
+            convertedOutputs: outputs,
+            conversionNotes: notes,
+            disposalMethod: outputs.length > 0 ? 'CONVERTED' : 'DESTROYED',
+          };
+        }
+        return r;
+      })
+    );
+
+    if (outputs.length > 0) {
+      setProducts(prev =>
+        prev.map(p => {
+          const added = outputs
+            .filter(o => o.productId === p.id)
+            .reduce((s, o) => s + o.weightKg, 0);
+          return added > 0 ? { ...p, inStockKg: Number((p.inStockKg + added).toFixed(2)) } : p;
+        })
+      );
     }
   };
 
@@ -593,6 +634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addYieldRecord,
         addDispatch,
         addReturn,
+        convertReturnOrder,
         addExpense,
         addCustomer,
         addSupplier,

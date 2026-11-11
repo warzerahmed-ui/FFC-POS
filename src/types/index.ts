@@ -130,7 +130,15 @@ export interface ReturnOrder {
   totalWeightKg: number;
   totalLossAmount: number;
   totalCustomerDeduction?: number;
-  disposalMethod: 'DESTROYED' | 'RENDERED_BONES';
+  disposalMethod: 'DESTROYED' | 'RENDERED_BONES' | 'CONVERTED';
+  conversionStatus?: 'PENDING' | 'CONVERTED';
+  convertedAt?: string;
+  convertedOutputs?: {
+    productId: string;
+    productName: string;
+    weightKg: number;
+  }[];
+  conversionNotes?: string;
   notes?: string;
 }
 
