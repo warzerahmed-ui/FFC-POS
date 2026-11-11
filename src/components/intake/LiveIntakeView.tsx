@@ -1,8 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Truck, Plus, FileText, Search, X, Check } from 'lucide-react';
+import { Truck, Plus, FileText, Search, X, Check, Scissors, ArrowLeft } from 'lucide-react';
+import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
+import { TabType } from '../layout/Sidebar';
 
-export const LiveIntakeView: React.FC = () => {
+interface LiveIntakeViewProps {
+  onNavigate?: (tab: TabType) => void;
+  onSendToSlaughter?: (intakeId: string) => void;
+}
+
+export const LiveIntakeView: React.FC<LiveIntakeViewProps> = ({
+  onNavigate,
+  onSendToSlaughter,
+}) => {
   const { intakes, suppliers, addIntake, addSupplier } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -114,6 +124,10 @@ export const LiveIntakeView: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {onNavigate && (
+        <FactoryPipelineStepper activeStage="intake" onNavigate={onNavigate} />
+      )}
+
       {/* Header */}
       <div className="apple-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
@@ -122,21 +136,35 @@ export const LiveIntakeView: React.FC = () => {
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
-              وەرگرتنی مریشکی زیندوو (کێڵگەکان)
+              ١. وەرگرتنی مریشکی زیندوو (کێڵگەکان)
             </h2>
             <p className="text-xs text-[#86868B] mt-0.5">
-              تۆمارکردنی باری هاتوو بە وەسڵی دەستی، کێشانی قەپان و حسابی کێڵگەکان
+              تۆمارکردنی باری هاتوو بە وەسڵی دەستی، کێشانی قەپان و ناردنی بۆ قۆناغی سەربڕین
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          وەسڵی دەستی نوێ
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            وەسڵی دەستی نوێ
+          </button>
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('production')}
+              className="px-4 py-2.5 bg-[#5856D6]/10 hover:bg-[#5856D6]/20 text-[#5856D6] font-bold text-xs rounded-full flex items-center gap-1.5 transition-all shrink-0"
+            >
+              قۆناغی ٢: سەربڕین
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Summary KPIs */}
@@ -188,6 +216,7 @@ export const LiveIntakeView: React.FC = () => {
                 <th className="p-4 text-center">نرخی کیلۆ</th>
                 <th className="p-4 text-left">کۆی تێچوو</th>
                 <th className="p-4 text-center">دۆخی پارەدان</th>
+                <th className="p-4 text-center">قۆناغی ٢ (سەربڕین)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[0.05] text-[#1D1D1F]">
@@ -229,6 +258,28 @@ export const LiveIntakeView: React.FC = () => {
                         ? 'بەشێکی دراوە'
                         : 'قەرزی سەر کارگە'}
                     </span>
+                  </td>
+                  <td className="p-4 text-center">
+                    {intake.remainingLiveWeightKg > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSendToSlaughter
+                            ? onSendToSlaughter(intake.id)
+                            : onNavigate?.('production')
+                        }
+                        className="px-3 py-1.5 rounded-full bg-[#5856D6]/12 hover:bg-[#5856D6] text-[#5856D6] hover:text-white font-bold text-[11px] inline-flex items-center gap-1 transition-all"
+                        title={`ماوە: ${intake.remainingLiveWeightKg} کگم`}
+                      >
+                        <Scissors className="w-3 h-3" />
+                        سەربڕین ({intake.remainingLiveWeightKg.toLocaleString()} کگم)
+                      </button>
+                    ) : (
+                      <span className="text-[10px] bg-[#34C759]/12 text-[#248A3D] px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        تەواو سەربڕاوە
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

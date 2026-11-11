@@ -17,10 +17,16 @@ import {
   X,
 } from 'lucide-react';
 import { DispatchItem, DispatchOrder, ProductItem } from '../../types';
+import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
+import { TabType } from '../layout/Sidebar';
 
 type SubTabType = 'inventory' | 'sales' | 'yields';
 
-export const ReadyForSaleView: React.FC = () => {
+interface ReadyForSaleViewProps {
+  onNavigate?: (tab: TabType) => void;
+}
+
+export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }) => {
   const {
     products,
     intakes,
@@ -267,15 +273,19 @@ export const ReadyForSaleView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {onNavigate && (
+        <FactoryPipelineStepper activeStage="ready-for-sale" onNavigate={onNavigate} />
+      )}
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1D1D1F] tracking-tight flex items-center gap-2.5">
             <PackageCheck className="w-6 h-6 text-[#0071E3]" />
-            ئامادە بۆ فرۆشتن
+            ٣. ئامادە بۆ فرۆشتن
           </h2>
           <p className="text-xs text-[#86868B] mt-1 font-medium">
-            کۆگای بەرهەمە ئامادەکان دوای سەربڕین و فرۆشتنی ڕاستەوخۆ لە کارگەوە
+            کۆگای بەرهەمە ئامادەکان دوای سەربڕین و پارچەکردن، و فرۆشتنی ڕاستەوخۆ لە کارگەوە
           </p>
         </div>
 
@@ -291,11 +301,11 @@ export const ReadyForSaleView: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleOpenYieldModal}
-            className="px-5 py-2.5 bg-[#1D1D1F] hover:bg-[#2C2C2E] text-white font-semibold text-xs rounded-full shadow-sm flex items-center gap-2 transition-all active:scale-[0.98]"
+            onClick={() => (onNavigate ? onNavigate('production') : handleOpenYieldModal())}
+            className="px-5 py-2.5 bg-[#5856D6]/12 hover:bg-[#5856D6]/20 text-[#5856D6] font-semibold text-xs rounded-full flex items-center gap-2 transition-all active:scale-[0.98]"
           >
-            <Factory className="w-4 h-4 text-[#34C759]" />
-            + ئامادەکردن لە باری کێڵگەوە
+            <Factory className="w-4 h-4" />
+            قۆناغی ٢: سەربڕین و پارچەکردن
           </button>
         </div>
       </div>

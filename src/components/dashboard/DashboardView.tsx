@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Truck,
+  Factory,
   PackageCheck,
   RotateCcw,
   Users,
@@ -90,6 +91,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
             >
               <Truck className="w-3.5 h-3.5" />
               + باری کێڵگە
+            </button>
+          )}
+
+          {hasAccess('production') && (
+            <button
+              onClick={() => setActiveTab('production')}
+              className="px-4 py-2.5 bg-[#5856D6]/15 hover:bg-[#5856D6]/25 text-[#4947C2] font-semibold text-xs rounded-full flex items-center gap-1.5 transition-all"
+            >
+              <Factory className="w-3.5 h-3.5 text-[#5856D6]" />
+              سەربڕین و پارچەکردن
             </button>
           )}
 

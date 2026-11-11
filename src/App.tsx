@@ -4,6 +4,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Sidebar, TabType } from './components/layout/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { LiveIntakeView } from './components/intake/LiveIntakeView';
+import { SlaughterCuttingView } from './components/production/SlaughterCuttingView';
 import { ReadyForSaleView } from './components/ready/ReadyForSaleView';
 import { RepSalesView } from './components/reps/RepSalesView';
 import { GiftsView } from './components/gifts/GiftsView';
@@ -15,7 +16,13 @@ import { LoginScreen } from './components/auth/LoginScreen';
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedIntakeForProductionId, setSelectedIntakeForProductionId] = useState<string | null>(null);
   const { hasAccess, currentUser, isAuthenticated } = useApp();
+
+  const handleSendToSlaughter = (intakeId: string) => {
+    setSelectedIntakeForProductionId(intakeId);
+    setActiveTab('production');
+  };
 
   // Redirect if current role lacks permission for activeTab
   useEffect(() => {
@@ -48,8 +55,22 @@ function AppContent() {
 
         <main className="flex-1 p-4 md:p-6 lg:p-7 max-w-[1440px] mx-auto w-full overflow-x-hidden">
           {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
-          {activeTab === 'intake' && hasAccess('intake') && <LiveIntakeView />}
-          {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && <ReadyForSaleView />}
+          {activeTab === 'intake' && hasAccess('intake') && (
+            <LiveIntakeView
+              onNavigate={setActiveTab}
+              onSendToSlaughter={handleSendToSlaughter}
+            />
+          )}
+          {activeTab === 'production' && hasAccess('production') && (
+            <SlaughterCuttingView
+              onNavigate={setActiveTab}
+              preselectedIntakeId={selectedIntakeForProductionId}
+              onClearPreselect={() => setSelectedIntakeForProductionId(null)}
+            />
+          )}
+          {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && (
+            <ReadyForSaleView onNavigate={setActiveTab} />
+          )}
           {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
             hasAccess('rep-sales') && <RepSalesView />}
           {activeTab === 'gifts' && hasAccess('gifts') && <GiftsView />}
