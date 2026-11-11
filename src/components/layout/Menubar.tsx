@@ -235,13 +235,18 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          {/* Brand Emblem */}
+          {/* Brand Emblem (Click to open Dashboard) */}
           <button
             type="button"
             onClick={() => {
               if (hasAccess('dashboard')) handleSelectTab('dashboard');
             }}
-            className="flex items-center gap-2.5 text-right shrink-0 group cursor-pointer"
+            title="داشبۆردی سەرەکی"
+            className={`flex items-center gap-2.5 text-right shrink-0 group cursor-pointer px-2 py-1 rounded-2xl transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-[#EFF6FF]/70 ring-1 ring-[#3B82F6]/25'
+                : 'hover:bg-slate-100/70'
+            }`}
           >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0071E3] to-[#1D4ED8] flex items-center justify-center shadow-sm shadow-[#0071E3]/25 text-white text-lg transition-transform group-hover:scale-105">
               🍗
@@ -259,9 +264,11 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
           {/* Subtle Vertical Divider */}
           <div className="hidden lg:block h-7 w-px bg-slate-200/90 mx-1 shrink-0" />
 
-          {/* Desktop Horizontal Menubar Groups */}
+          {/* Desktop Horizontal Menubar Groups (Brand opens Dashboard) */}
           <nav className="hidden lg:flex items-center gap-1.5">
-            {accessibleGroups.map(group => {
+            {accessibleGroups
+              .filter(group => group.key !== 'dashboard')
+              .map(group => {
               const active = isGroupActive(group);
               const isOpen = openGroup === group.key;
               const isSingleDirect = group.directTab && group.items.length === 1;
