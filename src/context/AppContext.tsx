@@ -56,6 +56,7 @@ interface AppContextType {
   switchUser: (userId: string) => void;
   logout: () => void;
   hasAccess: (tab: string) => boolean;
+  isAuthenticated: boolean;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
 
@@ -182,6 +183,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => localStorage.getItem('fresh_chicken_auth_v4') === '1'
+  );
+  useEffect(() => {
+    localStorage.setItem('fresh_chicken_auth_v4', isAuthenticated ? '1' : '0');
+  }, [isAuthenticated]);
+
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.INTAKES, JSON.stringify(intakes)); }, [intakes]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.YIELDS, JSON.stringify(yields)); }, [yields]);
@@ -221,6 +229,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const superAdmin = users.find(u => u.phone === '07701441068') || INITIAL_USERS[0];
       setCurrentUser(superAdmin);
       setShowLoginModal(false);
+      setIsAuthenticated(true);
       return true;
     }
 
@@ -240,6 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (found) {
       setCurrentUser(found);
       setShowLoginModal(false);
+      setIsAuthenticated(true);
       return true;
     }
     return false;
@@ -253,7 +263,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
-    setShowLoginModal(true);
+    setIsAuthenticated(false);
+    setShowLoginModal(false);
   };
 
   const parseWeightBarcode = (barcodeStr: string) => {
@@ -575,6 +586,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         switchUser,
         logout,
         hasAccess,
+        isAuthenticated,
         showLoginModal,
         setShowLoginModal,
         addIntake,

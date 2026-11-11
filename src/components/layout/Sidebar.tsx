@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen = false,
   onCloseMobile,
 }) => {
-  const { currentUser, hasAccess, setShowLoginModal } = useApp();
+  const { currentUser, hasAccess, logout } = useApp();
 
   const menuItems = [
     { id: 'dashboard' as TabType, label: 'داشبۆردی سەرەکی', icon: LayoutDashboard, badge: null },
@@ -126,11 +126,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => {
-              setShowLoginModal(true);
+              logout();
               if (onCloseMobile) onCloseMobile();
             }}
             className="p-2 rounded-xl bg-[#F5F5F7] hover:bg-[#FF3B30]/10 text-[#86868B] hover:text-[#FF3B30] transition-colors shrink-0"
-            title="گۆڕینی ئەکاونت"
+            title="چوونەدەرەوە"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>

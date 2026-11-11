@@ -10,16 +10,16 @@ import { ReturnsView } from './components/returns/ReturnsView';
 import { POSView } from './components/pos/POSView';
 import { AccountingView } from './components/accounting/AccountingView';
 import { ReportsView } from './components/reports/ReportsView';
-import { LoginModal } from './components/auth/LoginModal';
+import { LoginScreen } from './components/auth/LoginScreen';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { hasAccess, currentUser } = useApp();
+  const { hasAccess, currentUser, isAuthenticated } = useApp();
 
   // Redirect if current role lacks permission for activeTab
   useEffect(() => {
-    if (!hasAccess(activeTab)) {
+    if (isAuthenticated && !hasAccess(activeTab)) {
       if (currentUser.role === 'REP') {
         setActiveTab('rep-sales');
       } else if (currentUser.role === 'CASHIER') {
@@ -28,7 +28,11 @@ function AppContent() {
         setActiveTab('dashboard');
       }
     }
-  }, [currentUser, activeTab, hasAccess]);
+  }, [currentUser, activeTab, hasAccess, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] flex flex-col selection:bg-[#0071E3] selection:text-white">
@@ -53,8 +57,6 @@ function AppContent() {
           {activeTab === 'reports' && hasAccess('reports') && <ReportsView />}
         </main>
       </div>
-
-      <LoginModal />
     </div>
   );
 }

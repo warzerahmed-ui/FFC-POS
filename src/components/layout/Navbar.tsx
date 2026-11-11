@@ -7,7 +7,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
-  const { currentUser, setShowLoginModal } = useApp();
+  const { currentUser, logout } = useApp();
   const today = new Date().toLocaleDateString('ckb-IQ', {
     weekday: 'long',
     year: 'numeric',
@@ -77,9 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu }) => {
 
         <button
           type="button"
-          onClick={() => setShowLoginModal(true)}
+          onClick={logout}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${getRoleBadgeClasses()}`}
-          title="گۆڕینی ئەکاونت یان چوونەژوورەوە"
+          title="چوونەدەرەوە"
         >
           <span className="text-sm">{currentUser?.role === 'SUPER_ADMIN' ? '👔' : currentUser?.avatarEmoji || '👤'}</span>
           <span className="font-bold">
