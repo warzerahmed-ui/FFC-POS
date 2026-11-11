@@ -13,6 +13,7 @@ import {
   BranchDelivery,
   BranchExpense,
   CustodyTransfer,
+  DailySettlement,
   User,
 } from '../types';
 
@@ -594,5 +595,32 @@ export const INITIAL_CUSTODY_TRANSFERS: CustodyTransfer[] = [
     ],
     totalWeightKg: 195.0,
     notes: 'باری بەیانی لە کۆگای ئامادەوە بۆ حسابی مەندوب هێمن',
+  },
+];
+
+export const INITIAL_DAILY_SETTLEMENTS: DailySettlement[] = [
+  {
+    id: 'set-1',
+    settlementNo: 'SET-1001',
+    date: '2026-11-04',
+    settledAtDate: '2026-11-04',
+    settledAtTime: '08:30 پ.ن',
+    accountType: 'BRANCH',
+    accountName: 'فرۆشگای تایبەت (POS / شۆرۆم)',
+    totalWeightKg: 3.35,
+    totalSalesAmount: 15000,
+    cashSalesAmount: 15000,
+    creditSalesAmount: 0,
+    cardSalesAmount: 0,
+    returnsAmount: 0,
+    expensesAmount: 0,
+    collectedDebtAmount: 0,
+    expectedCashAmount: 15000,
+    returnedCashAmount: 15000,
+    returnedCardAmount: 0,
+    varianceAmount: 0,
+    status: 'MATCHED',
+    settledBy: 'ئەدمین',
+    notes: 'تەسفییەی تەواوی سندووقی شۆرۆم بۆ ڕۆژی 2026-11-04',
   },
 ];

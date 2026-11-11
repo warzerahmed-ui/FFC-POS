@@ -279,3 +279,28 @@ export interface CustodyTransfer {
   totalWeightKg: number;
   notes?: string;
 }
+
+export interface DailySettlement {
+  id: string;
+  settlementNo: string;        // ژمارەی وەسڵی تەسفییە (نموونە: SET-4012)
+  date: string;                // بەرواری فرۆشتن کە تەسفیە دەکرێت (YYYY-MM-DD)
+  settledAtDate: string;       // بەرواری ئەنجامدانی تەسفییە
+  settledAtTime: string;       // کاتژمێر
+  accountType: 'REP' | 'BRANCH';
+  accountName: string;         // ناوی مەندوب یان فرۆشگای تایبەت (POS / شۆرۆم)
+  totalWeightKg: number;       // کۆی کێشی فرۆشراو لەم ڕۆژەدا
+  totalSalesAmount: number;    // کۆی گشتی فرۆشتن
+  cashSalesAmount: number;     // فرۆشتنی کاش
+  creditSalesAmount: number;   // فرۆشتنی قەرز
+  cardSalesAmount: number;     // فرۆشتنی کارت / FIB (بۆ شۆرۆم)
+  returnsAmount: number;       // بڕی گەڕاوەی ٣ ڕۆژ
+  expensesAmount: number;      // خەرجیی ڕۆژانە (بۆ شۆرۆم)
+  collectedDebtAmount: number; // قەرزی کۆن وەرگیراو لە بازاڕ (ئەگەر هەبێت)
+  expectedCashAmount: number;  // پارەی کاشی داواکراو
+  returnedCashAmount: number;  // پارەی کاشی گەڕاوە / تەسلیمکراو
+  returnedCardAmount: number;  // پارەی کارت / FIB گەڕاوە
+  varianceAmount: number;      // جیاوازی = گەڕاوە - داواکراو
+  status: 'MATCHED' | 'SHORTAGE' | 'SURPLUS';
+  settledBy?: string;
+  notes?: string;
+}

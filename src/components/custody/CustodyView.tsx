@@ -13,8 +13,10 @@ import {
   X,
   ArrowRight,
   PackageCheck,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { TabType } from '../layout/Sidebar';
+import { DailySettlementView } from '../accounting/DailySettlementView';
 
 const REP_PRESETS = [
   'مەندوب شوان (هێڵی بەختیاری)',
@@ -59,8 +61,10 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
     loadToRepCustody,
     addBranchDelivery,
     returnUnsoldToReadyStock,
+    hasAccess,
   } = useApp();
 
+  const [custodyTab, setCustodyTab] = useState<'STOCK' | 'SETTLEMENT'>('STOCK');
   const [selectedFilterHolder, setSelectedFilterHolder] = useState<string>('ALL');
 
   // Modal 1: Load / Send from Ready Stock onto Rep or Store Custody Account
@@ -390,30 +394,56 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="apple-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className={`apple-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${custodyTab === 'SETTLEMENT' ? 'no-print' : ''}`}>
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-[#0071E3]/12 text-[#0071E3] flex items-center justify-center shrink-0">
             <ClipboardList className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
-              حسابی مەندوب و فرۆشگای تایبەت (عەهدەی ڕۆژانە)
+              حسابی مەندوب و فرۆشگای تایبەت (عەهدە و تەسفییەی ڕۆژانە)
             </h2>
             <p className="text-xs text-[#86868B] mt-0.5">
-              ناردنی ڕۆژانە لە کۆگای ئامادە، تۆمارکردنی فرۆشراو بە وەسڵ، و گەڕانەوەی نەفرۆشراو تا هیچ بەرهەمێک ون نەبێت
+              ناردنی ڕۆژانەی بەرهەم، کۆنترۆڵی کێشی ماوە، کەشفی حسابی فرۆش و تەسفییەی پارەی گەڕاوە
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleOpenLoadModal()}
-            className="px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs rounded-full shadow-sm shadow-[#0071E3]/25 flex items-center gap-1.5 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            ناردنە سەر حسابی مەندوب / فرۆشگا
-          </button>
+          {hasAccess('accounting') && (
+            <div className="apple-segmented text-xs">
+              <button
+                type="button"
+                onClick={() => setCustodyTab('STOCK')}
+                className={`apple-segment-btn ${
+                  custodyTab === 'STOCK' ? 'apple-segment-btn-active' : ''
+                }`}
+              >
+                عەهدەی کاڵا (کگم)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustodyTab('SETTLEMENT')}
+                className={`apple-segment-btn flex items-center gap-1 ${
+                  custodyTab === 'SETTLEMENT' ? 'apple-segment-btn-active' : ''
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#34C759]" />
+                کەشف و تەسفییەی پارە
+              </button>
+            </div>
+          )}
+
+          {custodyTab === 'STOCK' && (
+            <button
+              type="button"
+              onClick={() => handleOpenLoadModal()}
+              className="px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs rounded-full shadow-sm shadow-[#0071E3]/25 flex items-center gap-1.5 transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              ناردنە سەر حسابی مەندوب / فرۆشگا
+            </button>
+          )}
 
           {onNavigate && (
             <button
@@ -427,6 +457,11 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
           )}
         </div>
       </div>
+
+      {custodyTab === 'SETTLEMENT' && hasAccess('accounting') ? (
+        <DailySettlementView />
+      ) : (
+        <>
 
       {/* Zero-Loss Balance KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1030,6 +1065,8 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

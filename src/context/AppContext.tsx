@@ -14,6 +14,7 @@ import {
   INITIAL_BRANCH_DELIVERIES,
   INITIAL_BRANCH_EXPENSES,
   INITIAL_CUSTODY_TRANSFERS,
+  INITIAL_DAILY_SETTLEMENTS,
   INITIAL_USERS,
 } from '../data/mockData';
 import {
@@ -31,6 +32,7 @@ import {
   BranchDelivery,
   BranchExpense,
   CustodyTransfer,
+  DailySettlement,
   User,
 } from '../types';
 
@@ -53,6 +55,9 @@ interface AppContextType {
 
   // Rep & Branch Custody Transfers
   custodyTransfers: CustodyTransfer[];
+
+  // Daily Rep & Showroom Financial Settlements
+  settlements: DailySettlement[];
 
   // Authentication & Users
   currentUser: User;
@@ -91,6 +96,9 @@ interface AppContextType {
   loadToRepCustody: (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => void;
   returnUnsoldToReadyStock: (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => void;
 
+  // Daily Settlement Action
+  addDailySettlement: (settlement: Omit<DailySettlement, 'id'>) => DailySettlement;
+
   // Barcode decoding utility
   parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
 }
@@ -112,6 +120,7 @@ const STORAGE_KEYS = {
   BRANCH_DELIVERIES: 'fresh_chicken_branch_deliveries_v4',
   BRANCH_EXPENSES: 'fresh_chicken_branch_expenses_v4',
   CUSTODY_TRANSFERS: 'fresh_chicken_custody_v4',
+  DAILY_SETTLEMENTS: 'fresh_chicken_settlements_v4',
   USERS: 'fresh_chicken_users_v4',
   CURRENT_USER: 'fresh_chicken_current_user_v4',
 };
@@ -187,6 +196,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_CUSTODY_TRANSFERS;
   });
 
+  const [settlements, setSettlements] = useState<DailySettlement[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.DAILY_SETTLEMENTS);
+    return saved ? JSON.parse(saved) : INITIAL_DAILY_SETTLEMENTS;
+  });
+
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS);
     return saved ? JSON.parse(saved) : INITIAL_USERS;
@@ -224,6 +238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.BRANCH_DELIVERIES, JSON.stringify(branchDeliveries)); }, [branchDeliveries]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.BRANCH_EXPENSES, JSON.stringify(branchExpenses)); }, [branchExpenses]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CUSTODY_TRANSFERS, JSON.stringify(custodyTransfers)); }, [custodyTransfers]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.DAILY_SETTLEMENTS, JSON.stringify(settlements)); }, [settlements]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser)); }, [currentUser]);
 
@@ -667,6 +682,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addDailySettlement = (data: Omit<DailySettlement, 'id'>): DailySettlement => {
+    const id = `set-${Date.now()}`;
+    const record: DailySettlement = { ...data, id };
+    setSettlements(prev => [record, ...prev]);
+    return record;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -684,6 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         branchDeliveries,
         branchExpenses,
         custodyTransfers,
+        settlements,
         currentUser,
         users,
         login,
@@ -709,6 +732,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProductPrice,
         loadToRepCustody,
         returnUnsoldToReadyStock,
+        addDailySettlement,
         parseWeightBarcode,
       }}
     >
