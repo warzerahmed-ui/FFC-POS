@@ -25,15 +25,25 @@ function AppContent() {
     setActiveTab('production');
   };
 
-  // Redirect if current role lacks permission for activeTab
+  // Redirect if current role/account lacks permission for activeTab
   useEffect(() => {
     if (isAuthenticated && !hasAccess(activeTab)) {
-      if (currentUser.role === 'REP') {
-        setActiveTab('rep-sales');
-      } else if (currentUser.role === 'CASHIER') {
-        setActiveTab('pos');
-      } else {
-        setActiveTab('dashboard');
+      const fallbackOrder: TabType[] = [
+        'dashboard',
+        'rep-sales',
+        'pos',
+        'accounting',
+        'reports',
+        'intake',
+        'production',
+        'ready-for-sale',
+        'custody',
+        'gifts',
+        'settings',
+      ];
+      const firstAllowed = fallbackOrder.find(t => hasAccess(t));
+      if (firstAllowed && firstAllowed !== activeTab) {
+        setActiveTab(firstAllowed);
       }
     }
   }, [currentUser, activeTab, hasAccess, isAuthenticated]);

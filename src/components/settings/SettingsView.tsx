@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '../../context/AppContext';
+import { useApp, ALL_SYSTEM_SECTIONS, getDefaultTabsForRole } from '../../context/AppContext';
 import {
   Settings,
   Building2,
@@ -9,6 +9,7 @@ import {
   Plus,
   Save,
   CheckCircle2,
+  Check,
   RotateCcw,
   Search,
   Edit3,
@@ -124,6 +125,7 @@ export const SettingsView: React.FC = () => {
   const [userRole, setUserRole] = useState<Exclude<UserRole, 'SUPER_ADMIN'>>('REP');
   const [userRoleTitleKu, setUserRoleTitleKu] = useState('مەندوبی فرۆشتن');
   const [userEmoji, setUserEmoji] = useState('🚚');
+  const [userAllowedTabs, setUserAllowedTabs] = useState<string[]>(getDefaultTabsForRole('REP'));
   const [userError, setUserError] = useState('');
 
   const filteredUsers = visibleUsers.filter(
@@ -141,6 +143,7 @@ export const SettingsView: React.FC = () => {
     setUserRole('REP');
     setUserRoleTitleKu('مەندوبی فرۆشتن');
     setUserEmoji('🚚');
+    setUserAllowedTabs(getDefaultTabsForRole('REP'));
     setUserError('');
     setShowUserModal(true);
   };
@@ -153,13 +156,27 @@ export const SettingsView: React.FC = () => {
     setUserRole((u.role === 'SUPER_ADMIN' ? 'ADMIN' : u.role) as Exclude<UserRole, 'SUPER_ADMIN'>);
     setUserRoleTitleKu(u.roleTitleKu);
     setUserEmoji(u.avatarEmoji || '👤');
+    setUserAllowedTabs(
+      Array.isArray(u.allowedTabs) ? [...u.allowedTabs] : getDefaultTabsForRole(u.role)
+    );
     setUserError('');
     setShowUserModal(true);
+  };
+
+  const toggleAllowedTab = (tabId: string) => {
+    setUserAllowedTabs(prev =>
+      prev.includes(tabId) ? prev.filter(id => id !== tabId) : [...prev, tabId]
+    );
   };
 
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
     setUserError('');
+
+    if (userAllowedTabs.length === 0) {
+      setUserError('تکایە لانیکەم یەک بەش بۆ ئەم ئەکاونتە دیاری بکە');
+      return;
+    }
 
     if (editingUser) {
       const res = updateUser(editingUser.id, {
@@ -169,6 +186,7 @@ export const SettingsView: React.FC = () => {
         role: userRole,
         roleTitleKu: userRoleTitleKu.trim() || ROLE_OPTIONS.find(r => r.value === userRole)?.label || '',
         avatarEmoji: userEmoji,
+        allowedTabs: userAllowedTabs,
       });
       if (!res.ok) {
         setUserError(res.error || 'هەڵە ڕوویدا');
@@ -184,6 +202,7 @@ export const SettingsView: React.FC = () => {
         role: userRole,
         roleTitleKu: userRoleTitleKu.trim() || ROLE_OPTIONS.find(r => r.value === userRole)?.label || '',
         avatarEmoji: userEmoji,
+        allowedTabs: userAllowedTabs,
         isActive: true,
       });
       if (!res.ok) {
@@ -774,10 +793,15 @@ export const SettingsView: React.FC = () => {
                           <span className="inline-block w-full text-right">{u.phone}</span>
                         </td>
                         <td className="p-3.5">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#1D4ED8] font-bold text-[11px]">
-                            <Shield className="w-3 h-3" />
-                            {u.roleTitleKu}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#1D4ED8] font-bold text-[11px]">
+                              <Shield className="w-3 h-3" />
+                              {u.roleTitleKu}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold tabular-nums">
+                              {(u.allowedTabs ?? getDefaultTabsForRole(u.role)).length} بەش
+                            </span>
+                          </div>
                         </td>
                         <td className="p-3.5 text-center">
                           <button
@@ -1246,8 +1270,8 @@ export const SettingsView: React.FC = () => {
       {/* ========================================================================= */}
       {showUserModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-[28px] w-full max-w-md overflow-hidden shadow-2xl border border-black/[0.08] apple-sheet">
-            <div className="p-5 bg-[#FBFBFD] border-b border-black/[0.06] flex justify-between items-center">
+          <div className="bg-white rounded-[28px] w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-black/[0.08] apple-sheet">
+            <div className="p-5 bg-[#FBFBFD] border-b border-black/[0.06] flex justify-between items-center shrink-0">
               <h3 className="font-extrabold text-sm text-[#1D1D1F]">
                 {editingUser ? `دەستکاریکردنی ئەکاونتی ${editingUser.name}` : 'دروستکردنی ئەکاونتی نوێ'}
               </h3>
@@ -1260,7 +1284,7 @@ export const SettingsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveUser} className="p-5 space-y-3.5 text-xs">
+            <form onSubmit={handleSaveUser} className="p-5 space-y-4 text-xs overflow-y-auto">
               <div>
                 <label className="block font-bold text-[#515154] mb-1">ناوی تەواوی کارمەند *</label>
                 <input
@@ -1311,6 +1335,7 @@ export const SettingsView: React.FC = () => {
                     onChange={e => {
                       const val = e.target.value as Exclude<UserRole, 'SUPER_ADMIN'>;
                       setUserRole(val);
+                      setUserAllowedTabs(getDefaultTabsForRole(val));
                       const matched = ROLE_OPTIONS.find(r => r.value === val);
                       if (matched) {
                         setUserRoleTitleKu(matched.label);
@@ -1354,6 +1379,77 @@ export const SettingsView: React.FC = () => {
                       {em}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Section Permissions Matrix */}
+              <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-extrabold text-[#1D1D1F] flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-[#0071E3]" />
+                      بەشە ڕێگەپێدراوەکان ({userAllowedTabs.length} / {ALL_SYSTEM_SECTIONS.length})
+                    </span>
+                    <p className="text-[10px] text-[#86868B] mt-0.5">
+                      دیاری بکە ئەم ئەکاونتە بتوانێت بچێتە ناو کام بەشانەوە
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setUserAllowedTabs(ALL_SYSTEM_SECTIONS.map(s => s.id))}
+                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-[#0071E3] hover:bg-[#EFF6FF] cursor-pointer"
+                    >
+                      هەموو
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserAllowedTabs(getDefaultTabsForRole(userRole))}
+                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                    >
+                      پێشوەختی ڕۆڵ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserAllowedTabs([])}
+                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-[#D70015] hover:bg-[#FEF2F2] cursor-pointer"
+                    >
+                      هیچیان
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {ALL_SYSTEM_SECTIONS.map(sec => {
+                    const checked = userAllowedTabs.includes(sec.id);
+                    return (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => toggleAllowedTab(sec.id)}
+                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-right transition-all cursor-pointer ${
+                          checked
+                            ? 'bg-[#EFF6FF] border-[#3B82F6]/45 text-[#1D4ED8] font-bold'
+                            : 'bg-white border-slate-200/80 text-slate-600 hover:bg-slate-50 font-medium'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-[11px] truncate">{sec.label}</div>
+                          <div className="text-[9px] opacity-70 truncate">{sec.groupLabel}</div>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 ${
+                            checked
+                              ? 'bg-[#2563EB] text-white'
+                              : 'border border-slate-300 bg-white'
+                          }`}
+                        >
+                          {checked && <Check className="w-3 h-3" />}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -40,7 +40,38 @@ import {
   ActivityCategory,
   ActivityActionType,
   ActivityLogEntry,
+  UserRole,
 } from '../types';
+
+export const ALL_SYSTEM_SECTIONS: { id: string; label: string; groupLabel: string }[] = [
+  { id: 'dashboard', label: 'داشبۆردی سەرەکی', groupLabel: 'سەرەکی' },
+  { id: 'intake', label: '١. وەرگرتنی مریشک (کێڵگە)', groupLabel: 'کارگە و کۆگا' },
+  { id: 'production', label: '٢. سەربڕین و پارچەکردن', groupLabel: 'کارگە و کۆگا' },
+  { id: 'ready-for-sale', label: '٣. ئامادە بۆ فرۆشتن', groupLabel: 'کارگە و کۆگا' },
+  { id: 'custody', label: '٤. ناردن بۆ مەندوب و شۆرۆم', groupLabel: 'ناردن و فرۆشتن' },
+  { id: 'rep-sales', label: '٥. فرۆشتنی مەندوب و گەڕاوە', groupLabel: 'ناردن و فرۆشتن' },
+  { id: 'pos', label: '٦. فرۆشگای شۆرۆم (POS)', groupLabel: 'ناردن و فرۆشتن' },
+  { id: 'gifts', label: '٧. دیاری و هەدیە', groupLabel: 'ناردن و فرۆشتن' },
+  { id: 'accounting', label: '٨. کەشف حساب و دانەوەی قەرز', groupLabel: 'ژمێریاری و ڕاپۆرت' },
+  { id: 'reports', label: '٩. قازانج و زەرەر و ڕاپۆرتی ڕۆژانە', groupLabel: 'ژمێریاری و ڕاپۆرت' },
+  { id: 'settings', label: 'سیتینی کارگە و ئەکاونتەکان', groupLabel: 'بەڕێوەبردن' },
+];
+
+export const getDefaultTabsForRole = (role: UserRole): string[] => {
+  switch (role) {
+    case 'SUPER_ADMIN':
+    case 'ADMIN':
+      return ALL_SYSTEM_SECTIONS.map(s => s.id);
+    case 'ACCOUNTANT':
+      return ['dashboard', 'accounting', 'reports'];
+    case 'REP':
+      return ['dashboard', 'custody', 'rep-sales', 'gifts'];
+    case 'CASHIER':
+      return ['dashboard', 'pos'];
+    default:
+      return ['dashboard'];
+  }
+};
 
 interface AppContextType {
   products: ProductItem[];
@@ -334,19 +365,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const hasAccess = (tab: string): boolean => {
     if (!currentUser) return false;
-    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN') {
+    if (currentUser.isSuperAdmin || currentUser.role === 'SUPER_ADMIN') {
       return true;
     }
-    if (currentUser.role === 'ACCOUNTANT') {
-      return tab !== 'settings';
+    const normalizedTab = tab === 'dispatch' || tab === 'returns' ? 'rep-sales' : tab;
+    if (Array.isArray(currentUser.allowedTabs)) {
+      return currentUser.allowedTabs.includes(normalizedTab);
     }
-    if (currentUser.role === 'REP') {
-      return ['dashboard', 'custody', 'rep-sales', 'gifts', 'returns'].includes(tab);
-    }
-    if (currentUser.role === 'CASHIER') {
-      return ['dashboard', 'pos'].includes(tab);
-    }
-    return false;
+    return getDefaultTabsForRole(currentUser.role).includes(normalizedTab);
   };
 
   const login = (phone: string, pass: string): boolean => {
@@ -971,18 +997,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    const applyUserPatch = (u: User): User => ({
+      ...u,
+      ...updates,
+      name: updates.name !== undefined ? updates.name.trim() : u.name,
+      phone: updates.phone !== undefined ? updates.phone.trim() : u.phone,
+      password: updates.password && updates.password.trim() ? updates.password.trim() : u.password,
+    });
+
     setUsers(prev =>
       prev.map(u => {
         if (u.id !== userId || u.isSuperAdmin) return u;
-        return {
-          ...u,
-          ...updates,
-          name: updates.name !== undefined ? updates.name.trim() : u.name,
-          phone: updates.phone !== undefined ? updates.phone.trim() : u.phone,
-          password: updates.password && updates.password.trim() ? updates.password.trim() : u.password,
-        };
+        return applyUserPatch(u);
       })
     );
+
+    if (currentUser?.id === userId && !currentUser.isSuperAdmin) {
+      setCurrentUser(prev => applyUserPatch(prev));
+    }
 
     recordActivity(
       'SETTINGS',

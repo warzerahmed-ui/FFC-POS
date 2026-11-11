@@ -12,6 +12,7 @@ export interface User {
   isSuperAdmin?: boolean;
   avatarEmoji?: string;
   isActive?: boolean;
+  allowedTabs?: string[];
   createdAt?: string;
 }
 
