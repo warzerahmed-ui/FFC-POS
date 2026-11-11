@@ -100,12 +100,9 @@ interface AppContextType {
   currentUser: User;
   users: User[];
   login: (phone: string, pass: string) => boolean;
-  switchUser: (userId: string) => void;
   logout: () => void;
   hasAccess: (tab: string) => boolean;
   isAuthenticated: boolean;
-  showLoginModal: boolean;
-  setShowLoginModal: (show: boolean) => void;
 
   // Actions
   addIntake: (intake: Omit<LiveIntake, 'id' | 'processedLiveWeightKg' | 'remainingLiveWeightKg'>) => void;
@@ -316,8 +313,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_USERS[1];
   });
-
-  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     () => localStorage.getItem('fresh_chicken_auth_v4') === '1'
@@ -597,7 +592,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (cleanId === '07701441068' && cleanPass === '441068') {
       const superAdmin = users.find(u => u.phone === '07701441068') || INITIAL_USERS[0];
       setCurrentUser(superAdmin);
-      setShowLoginModal(false);
       setIsAuthenticated(true);
       recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', 'چوونەژوورەوەی بەڕێوەبەر', undefined, superAdmin);
       return true;
@@ -618,7 +612,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (found) {
       setCurrentUser(found);
-      setShowLoginModal(false);
       setIsAuthenticated(true);
       recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', `ئەکاونتی ${found.name} (${found.roleTitleKu}) چووە ژوورەوە`, undefined, found);
       return true;
@@ -626,18 +619,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  const switchUser = (userId: string) => {
-    const target = users.find(u => u.id === userId && !u.isSuperAdmin && u.isActive !== false);
-    if (target) {
-      setCurrentUser(target);
-      recordActivity('AUTH', 'LOGIN', 'گۆڕینی ئەکاونت', `گۆڕین بۆ ئەکاونتی ${target.name}`, undefined, target);
-    }
-  };
-
   const logout = () => {
     recordActivity('AUTH', 'LOGOUT', 'چوونەدەرەوە لە سیستەم', 'بەکارهێنەر لە سیستەم چووە دەرەوە');
     setIsAuthenticated(false);
-    setShowLoginModal(false);
   };
 
   const parseWeightBarcode = (barcodeStr: string) => {
@@ -1817,12 +1801,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         users,
         login,
-        switchUser,
         logout,
         hasAccess,
         isAuthenticated,
-        showLoginModal,
-        setShowLoginModal,
         addIntake,
         addYieldRecord,
         addDispatch,

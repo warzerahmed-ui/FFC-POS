@@ -31,8 +31,6 @@ export const AccountingView: React.FC = () => {
 
   // Supplier Statement Modal
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [suppStartDate, setSuppStartDate] = useState<string>('2026-10-01');
-  const [suppEndDate, setSuppEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Settlement Voucher Modal States
   const [showVoucherModal, setShowVoucherModal] = useState(false);

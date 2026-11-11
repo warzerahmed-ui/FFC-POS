@@ -48,7 +48,7 @@ export const RepSalesView: React.FC = () => {
     customers[0]?.name || 'سوپەرمارکێتی بەختەوەری (بەختیاری)'
   );
   const [customCustomer, setCustomCustomer] = useState('');
-  const [phone, setPhone] = useState('0770 234 5678');
+  const [phone] = useState('0770 234 5678');
   const [paymentType, setPaymentType] = useState<'CREDIT' | 'CASH' | 'ELECTRONIC'>('CREDIT');
   const [notes, setNotes] = useState('فرۆشی مەندوب بە وەسڵی دەستی');
 
