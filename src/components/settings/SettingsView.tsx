@@ -24,7 +24,10 @@ import {
   UserCheck,
   UserX,
   Clock,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { FactoryLogo } from '../layout/FactoryLogo';
 import {
   ActivityCategory,
   ActivityActionType,
@@ -95,6 +98,55 @@ export const SettingsView: React.FC = () => {
   // 1. FACTORY INFO FORM STATE
   // ==========================================
   const [factoryForm, setFactoryForm] = useState({ ...factorySettings });
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('تکایە تەنها فایلی وێنە (PNG / JPG / SVG) هەڵبژێرە', 'warn');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      if (file.type === 'image/svg+xml') {
+        setFactoryForm(f => ({ ...f, logoUrl: result }));
+        updateFactorySettings({ logoUrl: result });
+        showToast('لۆگۆی کارگە بە سەرکەوتوویی دانرا و خرایە سەر هەموو سیستەم', 'success');
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 280;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL('image/png');
+          setFactoryForm(f => ({ ...f, logoUrl: compressed }));
+          updateFactorySettings({ logoUrl: compressed });
+          showToast('لۆگۆی کارگە بە سەرکەوتوویی دانرا و خرایە سەر هەموو سیستەم', 'success');
+        }
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleClearLogo = () => {
+    setFactoryForm(f => ({ ...f, logoUrl: undefined }));
+    updateFactorySettings({ logoUrl: undefined });
+    showToast('لۆگۆی تایبەت لابرا', 'success');
+  };
 
   const handleSaveFactoryInfo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -509,6 +561,49 @@ export const SettingsView: React.FC = () => {
               )}
             </div>
 
+            {/* Factory Logo Upload Block */}
+            <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <FactoryLogo
+                  size="lg"
+                  logoUrlOverride={factoryForm.logoUrl}
+                  altOverride={factoryForm.factoryName}
+                />
+                <div>
+                  <div className="font-extrabold text-xs text-[#1D1D1F] flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#0071E3]" />
+                    لۆگۆی فەرمی کارگە
+                  </div>
+                  <p className="text-[11px] text-[#86868B] mt-0.5">
+                    ئەم لۆگۆیە ڕاستەوخۆ دەچێتە سەر مینۆبار، شاشەی چوونەژوورەوە، وەسڵەکان و کەشف حسابەکان
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="px-4 py-2 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{factoryForm.logoUrl ? 'گۆڕینی لۆگۆ' : 'بارکردنی لۆگۆ'}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {factoryForm.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={handleClearLogo}
+                    className="px-3.5 py-2 rounded-full bg-[#FF3B30]/10 hover:bg-[#FF3B30]/18 text-[#D70015] font-bold text-xs cursor-pointer"
+                  >
+                    سڕینەوەی لۆگۆ
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label className="font-bold text-[#515154] block mb-1.5">ناوی کارگە *</label>
@@ -663,9 +758,11 @@ export const SettingsView: React.FC = () => {
 
               <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0071E3] to-[#1D4ED8] flex items-center justify-center text-white text-xl shadow-xs">
-                    🍗
-                  </div>
+                  <FactoryLogo
+                    size="lg"
+                    logoUrlOverride={factoryForm.logoUrl}
+                    altOverride={factoryForm.factoryName}
+                  />
                   <div>
                     <div className="font-extrabold text-sm text-[#1D1D1F]">
                       {factoryForm.factoryName || 'کارگەی مریشکی فرێش'}

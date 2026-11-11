@@ -28,6 +28,7 @@ export interface FactorySettings {
   currency: string;
   returnWindowDays: number;
   receiptFooter: string;
+  logoUrl?: string;
   updatedAt?: string;
 }
 

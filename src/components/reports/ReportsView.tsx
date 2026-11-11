@@ -17,9 +17,10 @@ import {
 } from 'lucide-react';
 import { ExpenseRecord } from '../../types';
 import { DailySettlementView } from '../accounting/DailySettlementView';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const ReportsView: React.FC = () => {
-  const { intakes, dispatches, posSales, returns, expenses, branchExpenses, products, addExpense } = useApp();
+  const { intakes, dispatches, posSales, returns, expenses, branchExpenses, products, addExpense, factorySettings } = useApp();
 
   const [activeReportTab, setActiveReportTab] = useState<'PNL' | 'DAILY'>('PNL');
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -150,13 +151,17 @@ export const ReportsView: React.FC = () => {
           {/* Header */}
           <div className="apple-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-[#FF9500]/12 text-[#FF9500] flex items-center justify-center shrink-0">
-            <FileSpreadsheet className="w-5 h-5" />
-          </div>
+          <FactoryLogo size="md" />
           <div>
-            <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
-              ڕاپۆرتی قازانج و خەرجی (P & L)
-            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-extrabold text-[#1D1D1F] tracking-tight">
+                ڕاپۆرتی قازانج و خەرجی (P & L)
+              </h2>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#86868B] bg-black/[0.04] px-2 py-0.5 rounded-full">
+                <FileSpreadsheet className="w-3 h-3 text-[#FF9500]" />
+                {factorySettings.factoryName} • {factorySettings.shortCode}
+              </span>
+            </div>
             <p className="text-xs text-[#86868B] mt-0.5">
               شیکاری تەواوی داهاتی مەندوب و شۆرۆم، تێچووی کێڵگە، تەلەفی ٣ ڕۆژ و خەرجییەکان
             </p>

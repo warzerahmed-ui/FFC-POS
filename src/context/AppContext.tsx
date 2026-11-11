@@ -332,6 +332,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.FACTORY_SETTINGS, JSON.stringify(factorySettings)); }, [factorySettings]);
+  useEffect(() => {
+    document.title = `${factorySettings.factoryName} | ${factorySettings.shortCode}`;
+  }, [factorySettings.factoryName, factorySettings.shortCode]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TRASH_ITEMS, JSON.stringify(trashItems)); }, [trashItems]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify(activityLogs)); }, [activityLogs]);
 

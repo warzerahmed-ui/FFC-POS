@@ -18,6 +18,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { DailySettlement } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 const REP_PRESETS = [
   'مەندوب شوان (هێڵی بەختیاری)',
@@ -73,6 +74,7 @@ export const DailySettlementView: React.FC = () => {
     settlements,
     currentUser,
     addDailySettlement,
+    factorySettings,
   } = useApp();
 
   const todayISO = new Date().toISOString().split('T')[0];
@@ -1145,13 +1147,19 @@ export const DailySettlementView: React.FC = () => {
             <div className="p-6 space-y-5 text-xs">
               {/* Official Print Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#1D1D1F]/15">
-                <div>
-                  <h2 className="text-lg font-black text-[#1D1D1F]">
-                    کارگەی مریشکی فرێش (FFC-POS) — کەشفی حسابی فرۆشی ڕۆژانە
-                  </h2>
-                  <p className="text-xs font-bold text-[#0071E3] mt-1">
-                    حساب: {statementAccount.accountName}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <FactoryLogo size="lg" />
+                  <div>
+                    <h2 className="text-lg font-black text-[#1D1D1F]">
+                      {factorySettings.factoryName} ({factorySettings.shortCode}) — کەشفی حسابی فرۆشی ڕۆژانە
+                    </h2>
+                    <p className="text-xs font-bold text-[#0071E3] mt-0.5">
+                      حساب: {statementAccount.accountName}
+                    </p>
+                    <p className="text-[11px] text-[#86868B] mt-0.5">
+                      {factorySettings.address} • {factorySettings.phone1}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-left sm:text-left font-mono">
                   <div className="font-bold text-[#1D1D1F]">بەروار: {selectedDate}</div>

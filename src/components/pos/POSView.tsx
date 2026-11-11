@@ -23,6 +23,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { POSSaleItem, POSSale, ProductItem, ReturnItem, BranchStockItem } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 // ==========================================
 // AUDIO FEEDBACK HELPER (Web Audio API)
@@ -122,6 +123,7 @@ export const POSView: React.FC = () => {
     customers,
     branchExpenses,
     currentUser,
+    factorySettings,
     addPOSSale,
     addReturn,
     addBranchExpense,
@@ -1513,9 +1515,17 @@ export const POSView: React.FC = () => {
             </div>
 
             <div className="p-4 bg-[#F5F5F7] rounded-2xl text-center space-y-3 font-mono">
-              <div>
-                <h2 className="font-black text-base text-[#1D1D1F]">FFC FRESH CHICKEN</h2>
-                <p className="text-[11px] font-sans text-[#515154]">فرۆشگای تایبەتی مریشکی فرێش</p>
+              <div className="flex flex-col items-center gap-1.5">
+                <FactoryLogo size="lg" />
+                <h2 className="font-black text-base text-[#1D1D1F] font-sans">
+                  {factorySettings.factoryName}
+                </h2>
+                <p className="text-[11px] font-sans font-bold text-[#0071E3]">
+                  {factorySettings.shortCode} • {factorySettings.showroomName}
+                </p>
+                <p className="text-[10px] font-sans text-[#515154]">
+                  {factorySettings.address} • {factorySettings.phone1}
+                </p>
               </div>
 
               <div className="border-t border-b border-dashed border-black/20 py-2 text-right text-[11px] space-y-0.5">
@@ -1584,7 +1594,9 @@ export const POSView: React.FC = () => {
                 <BarcodeSVG code={printReceipt.saleNo.replace(/[^0-9]/g, '') || '1001001'} width={220} height={40} />
               </div>
 
-              <p className="text-[10px] text-[#86868B] font-sans">سوپاس بۆ سەردانەکەتان</p>
+              <p className="text-[10px] text-[#86868B] font-sans">
+                {factorySettings.receiptFooter || 'سوپاس بۆ سەردانەکەتان'}
+              </p>
             </div>
           </div>
         </div>

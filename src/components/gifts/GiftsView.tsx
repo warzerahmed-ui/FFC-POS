@@ -12,9 +12,10 @@ import {
   Scale,
 } from 'lucide-react';
 import { DispatchItem, DispatchOrder } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const GiftsView: React.FC = () => {
-  const { dispatches, products, addDispatch } = useApp();
+  const { dispatches, products, factorySettings, addDispatch } = useApp();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedReceiptForPrint, setSelectedReceiptForPrint] = useState<DispatchOrder | null>(null);
@@ -614,9 +615,14 @@ export const GiftsView: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-black/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
-              <div>
-                <h3 className="font-bold text-base text-[#1D1D1F]">وەسڵی دیاری و هەدیە (بەلاش)</h3>
-                <p className="text-[11px] text-[#86868B]">کارگەی مریشکی فرێش</p>
+              <div className="flex items-center gap-3">
+                <FactoryLogo size="md" />
+                <div>
+                  <h3 className="font-bold text-base text-[#1D1D1F]">وەسڵی دیاری و هەدیە (بەلاش)</h3>
+                  <p className="text-[11px] text-[#86868B]">
+                    {factorySettings.factoryName} • {factorySettings.phone1}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedReceiptForPrint(null)}

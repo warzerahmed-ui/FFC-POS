@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Lock, Phone, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const LoginScreen: React.FC = () => {
   const { login, factorySettings } = useApp();
@@ -23,9 +24,7 @@ export const LoginScreen: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center p-5 bg-gradient-to-b from-[#FBFBFD] via-[#F5F5F7] to-[#E8E8ED]">
       <div className="w-full max-w-sm apple-sheet">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-[24px] bg-[#1D1D1F] text-white flex items-center justify-center mx-auto text-4xl shadow-xl shadow-black/15">
-            🍗
-          </div>
+          <FactoryLogo size="xl" className="mx-auto shadow-xl shadow-black/15" />
           <h1 className="mt-5 text-2xl font-extrabold text-[#1D1D1F] tracking-tight">
             {factorySettings.shortCode}
           </h1>

@@ -19,6 +19,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { DispatchItem, DispatchOrder, ReturnItem, ReturnOrder } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 type SubTabType = 'sales' | 'returns';
 
@@ -36,7 +37,7 @@ const REASON_LABELS: Record<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED', string> = 
 };
 
 export const RepSalesView: React.FC = () => {
-  const { dispatches, returns, products, customers, custodyTransfers, addDispatch, addReturn } =
+  const { dispatches, returns, products, customers, custodyTransfers, factorySettings, addDispatch, addReturn } =
     useApp();
 
   const [subTab, setSubTab] = useState<SubTabType>('sales');
@@ -1681,11 +1682,16 @@ export const RepSalesView: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-black/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
-              <div>
-                <h3 className="font-bold text-base text-[#1D1D1F]">
-                  وەسڵی فرۆشی مەندوب و گەڕاوە
-                </h3>
-                <p className="text-[11px] text-[#86868B]">کارگەی مریشکی فرێش - بەشی مەندوبەکان</p>
+              <div className="flex items-center gap-3">
+                <FactoryLogo size="md" />
+                <div>
+                  <h3 className="font-bold text-base text-[#1D1D1F]">
+                    وەسڵی فرۆشی مەندوب و گەڕاوە
+                  </h3>
+                  <p className="text-[11px] text-[#86868B]">
+                    {factorySettings.factoryName} • {factorySettings.phone1}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -1796,11 +1802,12 @@ export const RepSalesView: React.FC = () => {
               );
             })()}
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <span className="text-[10px] text-[#86868B]">{factorySettings.receiptFooter}</span>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                className="px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full font-bold text-xs flex items-center gap-1.5 shadow-sm shrink-0 no-print"
               >
                 <Printer className="w-4 h-4" />
                 پرینتکردنی وەسڵ
@@ -1815,11 +1822,16 @@ export const RepSalesView: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-black/[0.08] space-y-4">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
-              <div>
-                <h3 className="font-bold text-base text-[#1D1D1F]">
-                  وەسڵی گەڕاوەی ٣ ڕۆژ (تەلەف)
-                </h3>
-                <p className="text-[11px] text-[#86868B]">کارگەی مریشکی فرێش</p>
+              <div className="flex items-center gap-3">
+                <FactoryLogo size="md" />
+                <div>
+                  <h3 className="font-bold text-base text-[#1D1D1F]">
+                    وەسڵی گەڕاوەی ٣ ڕۆژ (تەلەف)
+                  </h3>
+                  <p className="text-[11px] text-[#86868B]">
+                    {factorySettings.factoryName} • {factorySettings.phone1}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"

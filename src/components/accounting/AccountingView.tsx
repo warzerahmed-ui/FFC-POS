@@ -15,9 +15,10 @@ import {
   Filter,
 } from 'lucide-react';
 import { Customer, Supplier } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const AccountingView: React.FC = () => {
-  const { customers, suppliers, vouchers, dispatches, posSales, returns, addVoucher, addCustomer, addSupplier } = useApp();
+  const { customers, suppliers, vouchers, dispatches, posSales, returns, addVoucher, addCustomer, addSupplier, factorySettings } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'VOUCHERS' | 'CUSTOMERS' | 'SUPPLIERS'>('VOUCHERS');
 
@@ -574,15 +575,21 @@ export const AccountingView: React.FC = () => {
               
               {/* Statement Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/[0.08] pb-4 gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-0.5 rounded-full">
-                      کەشف حسابی فەرمی کڕیار (Account Statement)
-                    </span>
-                    <span className="text-xs text-[#86868B]">هاوکات لەگەڵ سەنەداتی دانەوە</span>
+                <div className="flex items-start gap-3">
+                  <FactoryLogo size="lg" />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-extrabold text-[#1D1D1F]">
+                        {factorySettings.factoryName} ({factorySettings.shortCode})
+                      </span>
+                      <span className="text-xs font-bold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-0.5 rounded-full">
+                        کەشف حسابی فەرمی کڕیار (Account Statement)
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-extrabold text-[#1D1D1F] mt-1">{selectedCustomer.name}</h3>
+                    <p className="text-xs text-[#86868B]">ناونیشان: {selectedCustomer.address} | تەلەفۆن: {selectedCustomer.phone}</p>
+                    <p className="text-[11px] text-[#86868B] mt-0.5">کارگە: {factorySettings.address} • {factorySettings.phone1}</p>
                   </div>
-                  <h3 className="text-xl font-extrabold text-[#1D1D1F] mt-1.5">{selectedCustomer.name}</h3>
-                  <p className="text-xs text-[#86868B]">ناونیشان: {selectedCustomer.address} | تەلەفۆن: {selectedCustomer.phone}</p>
                 </div>
 
                 <div className="text-left bg-[#F5F5F7] p-3 rounded-2xl border border-black/[0.04]">
@@ -760,9 +767,12 @@ export const AccountingView: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl space-y-4 font-sans border border-black/[0.08]">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-3">
-              <div>
-                <h3 className="text-lg font-extrabold text-[#1D1D1F]">کەشف حسابی کێڵگە / فرۆشیار</h3>
-                <p className="text-xs text-[#86868B]">کارگەی مریشکی فرێش - بەشی کڕین و کۆگا</p>
+              <div className="flex items-center gap-3">
+                <FactoryLogo size="md" />
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1D1D1F]">کەشف حسابی کێڵگە / فرۆشیار</h3>
+                  <p className="text-xs text-[#86868B]">{factorySettings.factoryName} - بەشی کڕین و کۆگا • {factorySettings.phone1}</p>
+                </div>
               </div>
               <div className="text-left text-xs">
                 <div>بەروار: <strong>{new Date().toISOString().split('T')[0]}</strong></div>

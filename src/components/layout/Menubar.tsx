@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TabType } from './Sidebar';
+import { FactoryLogo } from './FactoryLogo';
 import {
   LayoutDashboard,
   Truck,
@@ -248,9 +249,7 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
                 : 'hover:bg-slate-100/70'
             }`}
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0071E3] to-[#1D4ED8] flex items-center justify-center shadow-sm shadow-[#0071E3]/25 text-white text-lg transition-transform group-hover:scale-105">
-              🍗
-            </div>
+            <FactoryLogo size="md" className="transition-transform group-hover:scale-105" />
             <div>
               <div className="text-[13px] font-extrabold text-slate-900 tracking-tight leading-tight">
                 {factorySettings.factoryName}
