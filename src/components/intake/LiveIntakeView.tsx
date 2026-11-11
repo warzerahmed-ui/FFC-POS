@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Truck, Plus, FileText, Search, X } from 'lucide-react';
+import { Truck, Plus, FileText, Search, X, Check } from 'lucide-react';
 
 export const LiveIntakeView: React.FC = () => {
-  const { intakes, addIntake } = useApp();
+  const { intakes, suppliers, addIntake, addSupplier } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -11,6 +11,10 @@ export const LiveIntakeView: React.FC = () => {
   const [manualReceiptNo, setManualReceiptNo] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [farmName, setFarmName] = useState('');
+  const [showAddFarmBox, setShowAddFarmBox] = useState(false);
+  const [newFarmName, setNewFarmName] = useState('');
+  const [newFarmLocation, setNewFarmLocation] = useState('');
+  const [newFarmPhone, setNewFarmPhone] = useState('');
   const [driverName, setDriverName] = useState('');
   const [birdCount, setBirdCount] = useState<number | ''>('');
   const [grossWeightKg, setGrossWeightKg] = useState<number | ''>('');
@@ -19,6 +23,46 @@ export const LiveIntakeView: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<'DEBT' | 'PAID' | 'PARTIAL'>('DEBT');
   const [paidAmount, setPaidAmount] = useState<number | ''>(0);
   const [notes, setNotes] = useState('');
+
+  const farmOptions = useMemo(() => {
+    const unique = new Map<string, string>();
+    suppliers.forEach(s => {
+      const clean = s.name.trim().replace(/\s+/g, ' ');
+      if (clean && !unique.has(clean.toLowerCase())) {
+        unique.set(clean.toLowerCase(), clean);
+      }
+    });
+    intakes.forEach(i => {
+      const clean = i.farmName.trim().replace(/\s+/g, ' ');
+      if (clean && !unique.has(clean.toLowerCase())) {
+        unique.set(clean.toLowerCase(), clean);
+      }
+    });
+    return Array.from(unique.values()).sort((a, b) => a.localeCompare(b, 'ckb'));
+  }, [suppliers, intakes]);
+
+  const handleAddNewFarm = () => {
+    const cleanName = newFarmName.trim().replace(/\s+/g, ' ');
+    if (!cleanName) return;
+
+    const existing = farmOptions.find(f => f.toLowerCase() === cleanName.toLowerCase());
+    if (existing) {
+      setFarmName(existing);
+    } else {
+      addSupplier({
+        name: cleanName,
+        phone: newFarmPhone.trim(),
+        farmLocation: newFarmLocation.trim(),
+        currentBalance: 0,
+      });
+      setFarmName(cleanName);
+    }
+
+    setNewFarmName('');
+    setNewFarmLocation('');
+    setNewFarmPhone('');
+    setShowAddFarmBox(false);
+  };
 
   const netWeight = (Number(grossWeightKg) || 0) - (Number(tareWeightKg) || 0);
   const totalAmount = netWeight > 0 ? netWeight * (Number(pricePerKg) || 0) : 0;
@@ -47,6 +91,7 @@ export const LiveIntakeView: React.FC = () => {
     });
 
     setShowModal(false);
+    setShowAddFarmBox(false);
     setManualReceiptNo('');
     setFarmName('');
     setDriverName('');
@@ -236,15 +281,81 @@ export const LiveIntakeView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#515154] font-semibold mb-1">ناوی کێڵگە / فرۆشیار *</label>
-                  <input
-                    type="text"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[#515154] font-semibold">ناوی کێڵگە / فرۆشیار *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFarmBox(prev => !prev)}
+                      className="text-[11px] font-bold text-[#0071E3] hover:text-[#0077ED] flex items-center gap-0.5 transition-colors"
+                    >
+                      {showAddFarmBox ? (
+                        <>پاشگەزبوونەوە</>
+                      ) : (
+                        <>
+                          <Plus className="w-3 h-3" />
+                          کێڵگەی نوێ
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <select
                     required
-                    placeholder="کێڵگەی حاجی کەمال..."
                     value={farmName}
                     onChange={e => setFarmName(e.target.value)}
-                    className="apple-input w-full px-3.5 py-2 font-medium"
-                  />
+                    className="apple-input w-full px-3.5 py-2 font-semibold text-[#1D1D1F]"
+                  >
+                    <option value="">کێڵگەیەک هەڵبژێرە...</option>
+                    {farmOptions.map(name => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {showAddFarmBox && (
+                    <div className="mt-2 p-3 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] space-y-2">
+                      <input
+                        type="text"
+                        placeholder="ناوی کێڵگەی نوێ (بۆ نموونە: کێڵگەی شەهیدان)..."
+                        value={newFarmName}
+                        onChange={e => setNewFarmName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewFarm();
+                          }
+                        }}
+                        className="apple-input w-full px-3 py-1.5 text-xs font-semibold bg-white"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          placeholder="ناونیشان / شوێن (ئارەزوومەندانە)"
+                          value={newFarmLocation}
+                          onChange={e => setNewFarmLocation(e.target.value)}
+                          className="apple-input w-full px-3 py-1.5 text-[11px] bg-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="مۆبایل (ئارەزوومەندانە)"
+                          value={newFarmPhone}
+                          onChange={e => setNewFarmPhone(e.target.value)}
+                          dir="ltr"
+                          className="apple-input w-full px-3 py-1.5 text-[11px] bg-white text-left"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddNewFarm}
+                        disabled={!newFarmName.trim()}
+                        className="w-full py-1.5 rounded-xl bg-[#0071E3] hover:bg-[#0077ED] disabled:opacity-40 text-white font-bold text-[11px] flex items-center justify-center gap-1 transition-all"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        زیادکردن و هەڵبژاردنی کێڵگە
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
