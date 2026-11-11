@@ -34,6 +34,12 @@ import {
   CustodyTransfer,
   DailySettlement,
   User,
+  FactorySettings,
+  TrashEntityType,
+  SoftDeletedItem,
+  ActivityCategory,
+  ActivityActionType,
+  ActivityLogEntry,
 } from '../types';
 
 interface AppContextType {
@@ -99,6 +105,22 @@ interface AppContextType {
   // Daily Settlement Action
   addDailySettlement: (settlement: Omit<DailySettlement, 'id'>) => DailySettlement;
 
+  // Factory Settings, Account Management, Soft Delete & Activity Log
+  factorySettings: FactorySettings;
+  updateFactorySettings: (updates: Partial<FactorySettings>) => void;
+  addUser: (userData: Omit<User, 'id'>) => { ok: boolean; error?: string; user?: User };
+  updateUser: (
+    userId: string,
+    updates: Partial<Omit<User, 'id' | 'isSuperAdmin'>>
+  ) => { ok: boolean; error?: string };
+  trashItems: SoftDeletedItem[];
+  softDeleteRecord: (entityType: TrashEntityType, entityId: string, reason?: string) => boolean;
+  restoreTrashItem: (trashId: string) => boolean;
+  permanentlyDeleteTrashItem: (trashId: string) => void;
+  emptyTrash: () => void;
+  activityLogs: ActivityLogEntry[];
+  clearActivityLogs: () => void;
+
   // Barcode decoding utility
   parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
 }
@@ -123,6 +145,23 @@ const STORAGE_KEYS = {
   DAILY_SETTLEMENTS: 'fresh_chicken_settlements_v4',
   USERS: 'fresh_chicken_users_v4',
   CURRENT_USER: 'fresh_chicken_current_user_v4',
+  FACTORY_SETTINGS: 'fresh_chicken_settings_v4',
+  TRASH_ITEMS: 'fresh_chicken_trash_v4',
+  ACTIVITY_LOGS: 'fresh_chicken_activity_logs_v4',
+};
+
+const DEFAULT_FACTORY_SETTINGS: FactorySettings = {
+  factoryName: 'کارگەی مریشکی فرێش',
+  shortCode: 'FFC-POS',
+  tagline: 'سیستەمی بەڕێوەبردنی کارگە، مەندوب، شۆرۆم و ژمێریاری',
+  showroomName: 'فرۆشگای تایبەت (شۆرۆم POS)',
+  phone1: '0770 111 2233',
+  phone2: '0750 111 2233',
+  address: 'کوردستان - ناوچەی پیشەسازی',
+  licenseNo: 'FFC-2026-IQ',
+  currency: 'د.ع',
+  returnWindowDays: 3,
+  receiptFooter: 'سوپاس بۆ متمانەتان • مریشکی فرێش هەمیشە تەندروست و پاکژە',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -206,6 +245,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
 
+  const [factorySettings, setFactorySettings] = useState<FactorySettings>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.FACTORY_SETTINGS);
+    if (saved) {
+      try {
+        return { ...DEFAULT_FACTORY_SETTINGS, ...JSON.parse(saved) };
+      } catch {}
+    }
+    return DEFAULT_FACTORY_SETTINGS;
+  });
+
+  const [trashItems, setTrashItems] = useState<SoftDeletedItem[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.TRASH_ITEMS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LOGS);
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Default to Admin (Super Admin stays hidden unless explicitly logged in with 07701441068 / 441068)
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -241,11 +300,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.DAILY_SETTLEMENTS, JSON.stringify(settlements)); }, [settlements]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.FACTORY_SETTINGS, JSON.stringify(factorySettings)); }, [factorySettings]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.TRASH_ITEMS, JSON.stringify(trashItems)); }, [trashItems]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify(activityLogs)); }, [activityLogs]);
+
+  const recordActivity = (
+    category: ActivityCategory,
+    action: ActivityActionType,
+    title: string,
+    details: string,
+    refNo?: string,
+    actorOverride?: User
+  ) => {
+    const actor = actorOverride || currentUser;
+    const now = new Date();
+    const isHiddenSuper = actor?.isSuperAdmin || actor?.role === 'SUPER_ADMIN';
+    const entry: ActivityLogEntry = {
+      id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: now.toISOString(),
+      date: now.toISOString().slice(0, 10),
+      time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      userId: actor?.id || 'system',
+      userName: isHiddenSuper ? 'بەڕێوەبەری کارگە' : actor?.name || 'بەکارهێنەر',
+      userRoleTitle: isHiddenSuper ? 'بەڕێوەبەر' : actor?.roleTitleKu || '',
+      category,
+      action,
+      title,
+      details,
+      refNo,
+    };
+    setActivityLogs(prev => [entry, ...prev].slice(0, 500));
+  };
 
   const hasAccess = (tab: string): boolean => {
     if (!currentUser) return false;
-    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN' || currentUser.role === 'ACCOUNTANT') {
+    if (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'ADMIN') {
       return true;
+    }
+    if (currentUser.role === 'ACCOUNTANT') {
+      return tab !== 'settings';
     }
     if (currentUser.role === 'REP') {
       return ['dashboard', 'custody', 'rep-sales', 'gifts', 'returns'].includes(tab);
@@ -266,6 +359,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(superAdmin);
       setShowLoginModal(false);
       setIsAuthenticated(true);
+      recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', 'چوونەژوورەوەی بەڕێوەبەر', undefined, superAdmin);
       return true;
     }
 
@@ -277,7 +371,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const found = users.find(u => {
-      if (u.isSuperAdmin) return false;
+      if (u.isSuperAdmin || u.isActive === false) return false;
       const matchesIdentifier = u.phone === cleanId || (aliasRoleMap[cleanId] && u.role === aliasRoleMap[cleanId]);
       return matchesIdentifier && (u.password === cleanPass || !u.password);
     });
@@ -286,19 +380,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(found);
       setShowLoginModal(false);
       setIsAuthenticated(true);
+      recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', `ئەکاونتی ${found.name} (${found.roleTitleKu}) چووە ژوورەوە`, undefined, found);
       return true;
     }
     return false;
   };
 
   const switchUser = (userId: string) => {
-    const target = users.find(u => u.id === userId && !u.isSuperAdmin);
+    const target = users.find(u => u.id === userId && !u.isSuperAdmin && u.isActive !== false);
     if (target) {
       setCurrentUser(target);
+      recordActivity('AUTH', 'LOGIN', 'گۆڕینی ئەکاونت', `گۆڕین بۆ ئەکاونتی ${target.name}`, undefined, target);
     }
   };
 
   const logout = () => {
+    recordActivity('AUTH', 'LOGOUT', 'چوونەدەرەوە لە سیستەم', 'بەکارهێنەر لە سیستەم چووە دەرەوە');
     setIsAuthenticated(false);
     setShowLoginModal(false);
   };
@@ -351,6 +448,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       remainingLiveWeightKg: newIntake.netWeightKg,
     };
     setIntakes(prev => [intake, ...prev]);
+    recordActivity(
+      'INTAKE',
+      'CREATE',
+      'وەرگرتنی مریشکی زیندوو',
+      `${intake.farmName} • ${intake.netWeightKg.toLocaleString()} کگم • ${intake.totalAmount.toLocaleString()} د.ع`,
+      intake.manualReceiptNo
+    );
 
     if (intake.paymentStatus === 'DEBT' || intake.paymentStatus === 'PARTIAL') {
       const remainingDebt = intake.totalAmount - (intake.paidAmount || 0);
@@ -376,6 +480,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setYields(prev => [record, ...prev]);
+    recordActivity(
+      'PRODUCTION',
+      'CREATE',
+      'سەربڕین و پارچەکردن',
+      `وەسڵی #${newYield.manualReceiptNo} (${newYield.farmName}) • ${newYield.batchLiveWeightKg} کگم زیندوو -> ${newYield.dressedWeightKg} کگم گۆشت`,
+      newYield.manualReceiptNo
+    );
 
     setIntakes(prev => prev.map(i => {
       if (i.id === newYield.intakeId) {
@@ -404,6 +515,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = `disp-${Date.now()}`;
     const dispatch: DispatchOrder = { ...newDispatch, id };
     setDispatches(prev => [dispatch, ...prev]);
+    recordActivity(
+      'SALES',
+      'CREATE',
+      dispatch.destinationType === 'GIFT' ? 'دەرکردنی دیاری و هەدیە' : 'فرۆشتنی مەندوب',
+      `${dispatch.customerName || dispatch.destinationName} • ${dispatch.totalWeightKg} کگم • ${dispatch.totalAmount.toLocaleString()} د.ع`,
+      dispatch.manualReceiptNo
+    );
 
     // If it's a rep or direct sale on credit to a customer, update the customer's currentDebt
     if ((dispatch.destinationType === 'REP' || dispatch.destinationType === 'DIRECT') && dispatch.paymentType === 'CREDIT') {
@@ -458,6 +576,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       conversionStatus: newReturn.conversionStatus || 'PENDING',
     };
     setReturns(prev => [ret, ...prev]);
+    recordActivity(
+      'RETURN',
+      'CREATE',
+      ret.sourceType === 'BRANCH' ? 'گەڕاوەی ٣ ڕۆژی شۆرۆم' : 'گەڕاوەی ٣ ڕۆژی مەندوب',
+      `${ret.customerName || ret.sourceName} • ${ret.totalWeightKg} کگم`,
+      ret.manualReceiptNo
+    );
 
     // Real-time deduction from customer's debt
     const targetCust = newReturn.customerName;
@@ -521,11 +646,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       );
     }
+    recordActivity(
+      'RETURN',
+      'UPDATE',
+      'گۆڕینی شێوازی گەڕاوە بۆ ئامادە',
+      outputs.length > 0
+        ? outputs.map(o => `${o.productName}: ${o.weightKg} کگم`).join('، ')
+        : 'تەلەفکردنی گەڕاوە',
+      returnId
+    );
   };
 
   const addExpense = (newExpense: Omit<ExpenseRecord, 'id'>) => {
     const id = `exp-${Date.now()}`;
     setExpenses(prev => [{ ...newExpense, id }, ...prev]);
+    recordActivity('FINANCE', 'CREATE', 'تۆمارکردنی خەرجی کارگە', `${newExpense.title} • ${newExpense.amount.toLocaleString()} د.ع`, newExpense.receiptNo);
   };
 
   const addCustomer = (newCustomer: Omit<Customer, 'id' | 'createdAt'>) => {
@@ -536,6 +671,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().split('T')[0],
     };
     setCustomers(prev => [...prev, customer]);
+    recordActivity('FINANCE', 'CREATE', 'زیادکردنی کڕیار / مارکێت', `${customer.name} (${customer.phone || 'بێ ژمارە'})`);
   };
 
   const addSupplier = (newSupplier: Omit<Supplier, 'id' | 'createdAt'>) => {
@@ -546,6 +682,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString().split('T')[0],
     };
     setSuppliers(prev => [...prev, supplier]);
+    recordActivity('INTAKE', 'CREATE', 'زیادکردنی کێڵگە / دابینکەر', `${supplier.name} (${supplier.phone})`);
   };
 
   // Enhanced addVoucher: tracks previousDebt, amount, discount, remainingDebt, and time!
@@ -575,6 +712,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return c;
       }));
+      recordActivity('FINANCE', 'CREATE', 'سەنەدی وەرگرتن لە کڕیار', `${newVoucher.partyName} • ${newVoucher.amount.toLocaleString()} د.ع`, newVoucher.voucherNo);
     } else {
       const supplier = suppliers.find(s => s.id === newVoucher.partyId);
       previousDebt = supplier ? supplier.currentBalance : 0;
@@ -595,6 +733,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return s;
       }));
+      recordActivity('FINANCE', 'CREATE', 'سەنەدی پێدان بە کێڵگە', `${newVoucher.partyName} • ${newVoucher.amount.toLocaleString()} د.ع`, newVoucher.voucherNo);
     }
   };
 
@@ -603,6 +742,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saleNo = `POS-${String(posSales.length + 1).padStart(4, '0')}`;
     const sale: POSSale = { ...saleData, id, saleNo };
     setPosSales(prev => [sale, ...prev]);
+    recordActivity(
+      'SALES',
+      'CREATE',
+      'فرۆشتن لە شۆرۆم (POS)',
+      `${sale.customerName || 'کڕیار'} • ${sale.total.toLocaleString()} د.ع (${sale.paymentType})`,
+      sale.saleNo
+    );
 
     // Deduct from branch's dedicated stock
     setBranchStock(prev => prev.map(bs => {
@@ -676,6 +822,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addBranchExpense = (expData: Omit<BranchExpense, 'id'>) => {
     const id = `bexp-${Date.now()}`;
     setBranchExpenses(prev => [{ ...expData, id }, ...prev]);
+    recordActivity('FINANCE', 'CREATE', 'خەرجی شۆرۆم (POS)', `${expData.title} • ${expData.amount.toLocaleString()} د.ع`);
   };
 
   const updateBranchStockItem = (productId: string, updates: Partial<BranchStockItem>) => {
@@ -683,13 +830,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProductPrice = (id: string, newPrice: number, newCost: number) => {
+    const prod = products.find(p => p.id === id);
     setProducts(prev => prev.map(p => p.id === id ? { ...p, pricePerKg: newPrice, costPerKg: newCost } : p));
+    recordActivity(
+      'PRODUCTION',
+      'UPDATE',
+      'گۆڕینی نرخی بەرهەم',
+      `${prod?.nameKu || id}: فرۆشتن ${newPrice.toLocaleString()} د.ع • تێچوو ${newCost.toLocaleString()} د.ع`
+    );
   };
 
   const loadToRepCustody = (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => {
     const id = `cust-ld-${Date.now()}`;
     const record: CustodyTransfer = { ...transfer, id, direction: 'LOAD' };
     setCustodyTransfers(prev => [record, ...prev]);
+    recordActivity(
+      'CUSTODY',
+      'CREATE',
+      'ناردنی بار بۆ عەهدە',
+      `${transfer.holderName} • ${transfer.totalWeightKg} کگم`,
+      transfer.receiptNo
+    );
 
     setProducts(prev =>
       prev.map(p => {
@@ -705,6 +866,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = `cust-ret-${Date.now()}`;
     const record: CustodyTransfer = { ...transfer, id, direction: 'RETURN_TO_READY' };
     setCustodyTransfers(prev => [record, ...prev]);
+    recordActivity(
+      'CUSTODY',
+      'UPDATE',
+      'گەڕاندنەوەی نەفرۆشراو بۆ ئامادە',
+      `${transfer.holderName} • ${transfer.totalWeightKg} کگم`,
+      transfer.receiptNo
+    );
 
     // Add unsold weights back into Ready Stock (کۆگای ئامادە)
     setProducts(prev =>
@@ -733,7 +901,341 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = `set-${Date.now()}`;
     const record: DailySettlement = { ...data, id };
     setSettlements(prev => [record, ...prev]);
+    recordActivity(
+      'FINANCE',
+      'CREATE',
+      'تەسفییەی ڕۆژانە',
+      `تەسفییە بۆ ${data.accountName} - گەڕاوە: ${(data.returnedCashAmount + data.returnedCardAmount).toLocaleString()} د.ع`,
+      data.settlementNo
+    );
     return record;
+  };
+
+  // ==========================================
+  // FACTORY SETTINGS, ACCOUNTS, SOFT DELETE & LOGS
+  // ==========================================
+  const updateFactorySettings = (updates: Partial<FactorySettings>) => {
+    const updatedAt = new Date().toLocaleString('en-GB');
+    setFactorySettings(prev => ({ ...prev, ...updates, updatedAt }));
+    recordActivity(
+      'SETTINGS',
+      'UPDATE',
+      'نوێکردنەوەی زانیاری کارگە',
+      `زانیارییەکانی کارگە (${updates.factoryName || factorySettings.factoryName}) نوێکرایەوە`
+    );
+  };
+
+  const addUser = (userData: Omit<User, 'id'>): { ok: boolean; error?: string; user?: User } => {
+    const cleanPhone = userData.phone.trim();
+    if (!userData.name.trim() || !cleanPhone || !userData.password?.trim()) {
+      return { ok: false, error: 'تکایە ناو، ژمارەی مۆبایل و وشەی نهێنی بنووسە' };
+    }
+    if (cleanPhone === '07701441068' || users.some(u => u.phone.trim() === cleanPhone)) {
+      return { ok: false, error: 'ئەم ژمارە مۆبایلە پێشتر تۆمارکراوە!' };
+    }
+    const newUser: User = {
+      ...userData,
+      id: `user-${Date.now()}`,
+      name: userData.name.trim(),
+      phone: cleanPhone,
+      password: userData.password.trim(),
+      isSuperAdmin: false,
+      isActive: userData.isActive !== false,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setUsers(prev => [...prev, newUser]);
+    recordActivity(
+      'SETTINGS',
+      'CREATE',
+      'دروستکردنی ئەکاونتی نوێ',
+      `ئەکاونتی ${newUser.name} (${newUser.roleTitleKu} - ${newUser.phone}) دروستکرا`,
+      newUser.phone
+    );
+    return { ok: true, user: newUser };
+  };
+
+  const updateUser = (
+    userId: string,
+    updates: Partial<Omit<User, 'id' | 'isSuperAdmin'>>
+  ): { ok: boolean; error?: string } => {
+    const existing = users.find(u => u.id === userId && !u.isSuperAdmin);
+    if (!existing) return { ok: false, error: 'ئەکاونت نەدۆزرایەوە' };
+
+    if (updates.phone) {
+      const cleanPhone = updates.phone.trim();
+      if (
+        cleanPhone === '07701441068' ||
+        users.some(u => u.id !== userId && u.phone.trim() === cleanPhone)
+      ) {
+        return { ok: false, error: 'ئەم ژمارە مۆبایلە بۆ ئەکاونتێکی تر بەکارهێنراوە' };
+      }
+    }
+
+    setUsers(prev =>
+      prev.map(u => {
+        if (u.id !== userId || u.isSuperAdmin) return u;
+        return {
+          ...u,
+          ...updates,
+          name: updates.name !== undefined ? updates.name.trim() : u.name,
+          phone: updates.phone !== undefined ? updates.phone.trim() : u.phone,
+          password: updates.password && updates.password.trim() ? updates.password.trim() : u.password,
+        };
+      })
+    );
+
+    recordActivity(
+      'SETTINGS',
+      'UPDATE',
+      'دەستکاریکردنی ئەکاونت',
+      `زانیاری ئەکاونتی ${updates.name || existing.name} نوێکرایەوە`,
+      updates.phone || existing.phone
+    );
+    return { ok: true };
+  };
+
+  const softDeleteRecord = (
+    entityType: TrashEntityType,
+    entityId: string,
+    reason?: string
+  ): boolean => {
+    const now = new Date();
+    const deletedAt = now.toISOString().slice(0, 10);
+    const deletedTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const actorName =
+      currentUser?.role === 'SUPER_ADMIN' ? 'بەڕێوەبەری کارگە' : currentUser?.name || 'بەڕێوەبەر';
+
+    let entry: Omit<SoftDeletedItem, 'id' | 'deletedAt' | 'deletedTime' | 'deletedBy' | 'reason'> | null =
+      null;
+
+    if (entityType === 'USER') {
+      const target = users.find(u => u.id === entityId && !u.isSuperAdmin);
+      if (!target || target.id === currentUser.id) return false;
+      setUsers(prev => prev.filter(u => u.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'ئەکاونتی بەکارهێنەر',
+        title: target.name,
+        subtitle: `${target.roleTitleKu} • ${target.phone}`,
+        payload: target,
+      };
+    } else if (entityType === 'CUSTOMER') {
+      const target = customers.find(c => c.id === entityId);
+      if (!target) return false;
+      setCustomers(prev => prev.filter(c => c.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'کڕیار / مارکێت',
+        title: target.name,
+        subtitle: `قەرز: ${target.currentDebt.toLocaleString()} د.ع • ${target.phone || 'بێ ژمارە'}`,
+        payload: target,
+      };
+    } else if (entityType === 'SUPPLIER') {
+      const target = suppliers.find(s => s.id === entityId);
+      if (!target) return false;
+      setSuppliers(prev => prev.filter(s => s.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'کێڵگە / دابینکەر',
+        title: target.name,
+        subtitle: `باڵانس: ${target.currentBalance.toLocaleString()} د.ع • ${target.phone}`,
+        payload: target,
+      };
+    } else if (entityType === 'INTAKE') {
+      const target = intakes.find(i => i.id === entityId);
+      if (!target) return false;
+      setIntakes(prev => prev.filter(i => i.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'وەسڵی وەرگرتن',
+        title: `#${target.manualReceiptNo} • ${target.farmName}`,
+        subtitle: `${target.date} • ${target.netWeightKg.toLocaleString()} کگم • ${target.totalAmount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    } else if (entityType === 'DISPATCH') {
+      const target = dispatches.find(d => d.id === entityId);
+      if (!target) return false;
+      setDispatches(prev => prev.filter(d => d.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: target.destinationType === 'GIFT' ? 'وەسڵی هەدیە' : 'وەسڵی فرۆشی مەندوب',
+        title: `#${target.manualReceiptNo} • ${target.customerName || target.destinationName}`,
+        subtitle: `${target.date} • ${target.totalWeightKg} کگم • ${target.totalAmount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    } else if (entityType === 'POS_SALE') {
+      const target = posSales.find(s => s.id === entityId);
+      if (!target) return false;
+      setPosSales(prev => prev.filter(s => s.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'وەسڵی شۆرۆم (POS)',
+        title: `#${target.saleNo} • ${target.customerName || 'کڕیار'}`,
+        subtitle: `${target.date} • ${target.total.toLocaleString()} د.ع (${target.paymentType})`,
+        payload: target,
+      };
+    } else if (entityType === 'RETURN') {
+      const target = returns.find(r => r.id === entityId);
+      if (!target) return false;
+      setReturns(prev => prev.filter(r => r.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'گەڕاوەی ٣ ڕۆژ',
+        title: `#${target.manualReceiptNo} • ${target.sourceName}`,
+        subtitle: `${target.date} • ${target.totalWeightKg} کگم • ${target.totalLossAmount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    } else if (entityType === 'VOUCHER') {
+      const target = vouchers.find(v => v.id === entityId);
+      if (!target) return false;
+      setVouchers(prev => prev.filter(v => v.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'سەنەدی پارەدان/وەرگرتن',
+        title: `#${target.voucherNo} • ${target.partyName}`,
+        subtitle: `${target.date} • ${target.amount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    } else if (entityType === 'EXPENSE') {
+      const target = expenses.find(e => e.id === entityId);
+      if (!target) return false;
+      setExpenses(prev => prev.filter(e => e.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'خەرجی کارگە',
+        title: target.title,
+        subtitle: `${target.date} • ${target.amount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    } else if (entityType === 'BRANCH_EXPENSE') {
+      const target = branchExpenses.find(e => e.id === entityId);
+      if (!target) return false;
+      setBranchExpenses(prev => prev.filter(e => e.id !== entityId));
+      entry = {
+        entityType,
+        entityId,
+        entityLabelKu: 'خەرجی شۆرۆم',
+        title: target.title,
+        subtitle: `${target.date} • ${target.amount.toLocaleString()} د.ع`,
+        payload: target,
+      };
+    }
+
+    if (!entry) return false;
+
+    const trashRecord: SoftDeletedItem = {
+      ...entry,
+      id: `trash-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      reason: reason?.trim() || undefined,
+      deletedAt,
+      deletedTime,
+      deletedBy: actorName,
+    };
+
+    setTrashItems(prev => [trashRecord, ...prev]);
+    recordActivity(
+      'TRASH',
+      'DELETE',
+      `سۆفت دیلیت: ${entry.entityLabelKu}`,
+      `${entry.title} (${entry.subtitle})${trashRecord.reason ? ` • هۆکار: ${trashRecord.reason}` : ''}`,
+      entry.entityId
+    );
+    return true;
+  };
+
+  const restoreTrashItem = (trashId: string): boolean => {
+    const item = trashItems.find(t => t.id === trashId);
+    if (!item) return false;
+
+    if (item.entityType === 'USER') {
+      const u = item.payload as User;
+      setUsers(prev => (prev.some(x => x.id === u.id || x.phone === u.phone) ? prev : [...prev, u]));
+    } else if (item.entityType === 'CUSTOMER') {
+      const c = item.payload as Customer;
+      setCustomers(prev => (prev.some(x => x.id === c.id) ? prev : [...prev, c]));
+    } else if (item.entityType === 'SUPPLIER') {
+      const s = item.payload as Supplier;
+      setSuppliers(prev => (prev.some(x => x.id === s.id) ? prev : [...prev, s]));
+    } else if (item.entityType === 'INTAKE') {
+      const i = item.payload as LiveIntake;
+      setIntakes(prev => (prev.some(x => x.id === i.id) ? prev : [i, ...prev]));
+    } else if (item.entityType === 'DISPATCH') {
+      const d = item.payload as DispatchOrder;
+      setDispatches(prev => (prev.some(x => x.id === d.id) ? prev : [d, ...prev]));
+    } else if (item.entityType === 'POS_SALE') {
+      const s = item.payload as POSSale;
+      setPosSales(prev => (prev.some(x => x.id === s.id) ? prev : [s, ...prev]));
+    } else if (item.entityType === 'RETURN') {
+      const r = item.payload as ReturnOrder;
+      setReturns(prev => (prev.some(x => x.id === r.id) ? prev : [r, ...prev]));
+    } else if (item.entityType === 'VOUCHER') {
+      const v = item.payload as PaymentVoucher;
+      setVouchers(prev => (prev.some(x => x.id === v.id) ? prev : [v, ...prev]));
+    } else if (item.entityType === 'EXPENSE') {
+      const e = item.payload as ExpenseRecord;
+      setExpenses(prev => (prev.some(x => x.id === e.id) ? prev : [e, ...prev]));
+    } else if (item.entityType === 'BRANCH_EXPENSE') {
+      const e = item.payload as BranchExpense;
+      setBranchExpenses(prev => (prev.some(x => x.id === e.id) ? prev : [e, ...prev]));
+    }
+
+    setTrashItems(prev => prev.filter(t => t.id !== trashId));
+    recordActivity(
+      'TRASH',
+      'RESTORE',
+      `گەڕاندنەوەی ${item.entityLabelKu}`,
+      `${item.title} لە سەبەتەی سۆفت دیلیت گەڕێندرایەوە`,
+      item.entityId
+    );
+    return true;
+  };
+
+  const permanentlyDeleteTrashItem = (trashId: string) => {
+    const item = trashItems.find(t => t.id === trashId);
+    if (!item) return;
+    setTrashItems(prev => prev.filter(t => t.id !== trashId));
+    recordActivity(
+      'TRASH',
+      'PURGE',
+      `سڕینەوەی یەکجاری: ${item.entityLabelKu}`,
+      `${item.title} بە تەواوی لە سەبەتەی سۆفت دیلیت سڕایەوە`,
+      item.entityId
+    );
+  };
+
+  const emptyTrash = () => {
+    const count = trashItems.length;
+    setTrashItems([]);
+    recordActivity('TRASH', 'PURGE', 'بەتاڵکردنەوەی سەبەتەی سۆفت دیلیت', `${count} تۆمار بە یەکجاری سڕدرانەوە`);
+  };
+
+  const clearActivityLogs = () => {
+    const now = new Date();
+    const isHiddenSuper = currentUser?.isSuperAdmin || currentUser?.role === 'SUPER_ADMIN';
+    setActivityLogs([
+      {
+        id: `act-${Date.now()}`,
+        timestamp: now.toISOString(),
+        date: now.toISOString().slice(0, 10),
+        time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        userId: currentUser?.id || 'system',
+        userName: isHiddenSuper ? 'بەڕێوەبەری کارگە' : currentUser?.name || 'بەڕێوەبەر',
+        userRoleTitle: isHiddenSuper ? 'بەڕێوەبەر' : currentUser?.roleTitleKu || '',
+        category: 'SETTINGS',
+        action: 'PURGE',
+        title: 'پاککردنەوەی ئەکتیڤتی لۆگ',
+        details: 'تۆمارە کۆنەکانی چالاکی لەلایەن بەڕێوەبەرەوە پاککرانەوە',
+      },
+    ]);
   };
 
   return (
@@ -780,6 +1282,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadToRepCustody,
         returnUnsoldToReadyStock,
         addDailySettlement,
+        factorySettings,
+        updateFactorySettings,
+        addUser,
+        updateUser,
+        trashItems,
+        softDeleteRecord,
+        restoreTrashItem,
+        permanentlyDeleteTrashItem,
+        emptyTrash,
+        activityLogs,
+        clearActivityLogs,
         parseWeightBarcode,
       }}
     >

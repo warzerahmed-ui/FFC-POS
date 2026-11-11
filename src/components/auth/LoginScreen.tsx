@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Lock, Phone, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
-  const { login } = useApp();
+  const { login, factorySettings } = useApp();
 
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -26,8 +26,12 @@ export const LoginScreen: React.FC = () => {
           <div className="w-20 h-20 rounded-[24px] bg-[#1D1D1F] text-white flex items-center justify-center mx-auto text-4xl shadow-xl shadow-black/15">
             🍗
           </div>
-          <h1 className="mt-5 text-2xl font-extrabold text-[#1D1D1F] tracking-tight">FFC-POS</h1>
-          <p className="mt-1 text-xs text-[#86868B]">کارگەی مریشکی فرێش • چوونەژوورەوە بۆ سیستەم</p>
+          <h1 className="mt-5 text-2xl font-extrabold text-[#1D1D1F] tracking-tight">
+            {factorySettings.shortCode}
+          </h1>
+          <p className="mt-1 text-xs text-[#86868B]">
+            {factorySettings.factoryName} • چوونەژوورەوە بۆ سیستەم
+          </p>
         </div>
 
         <form

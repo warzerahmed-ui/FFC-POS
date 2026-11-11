@@ -11,6 +11,84 @@ export interface User {
   roleTitleKu: string;
   isSuperAdmin?: boolean;
   avatarEmoji?: string;
+  isActive?: boolean;
+  createdAt?: string;
+}
+
+export interface FactorySettings {
+  factoryName: string;
+  shortCode: string;
+  tagline: string;
+  showroomName: string;
+  phone1: string;
+  phone2: string;
+  address: string;
+  licenseNo: string;
+  currency: string;
+  returnWindowDays: number;
+  receiptFooter: string;
+  updatedAt?: string;
+}
+
+export type TrashEntityType =
+  | 'USER'
+  | 'CUSTOMER'
+  | 'SUPPLIER'
+  | 'INTAKE'
+  | 'DISPATCH'
+  | 'POS_SALE'
+  | 'RETURN'
+  | 'VOUCHER'
+  | 'EXPENSE'
+  | 'BRANCH_EXPENSE';
+
+export interface SoftDeletedItem {
+  id: string;
+  entityType: TrashEntityType;
+  entityId: string;
+  entityLabelKu: string;
+  title: string;
+  subtitle: string;
+  reason?: string;
+  deletedAt: string;
+  deletedTime: string;
+  deletedBy: string;
+  payload: unknown;
+}
+
+export type ActivityCategory =
+  | 'AUTH'
+  | 'INTAKE'
+  | 'PRODUCTION'
+  | 'CUSTODY'
+  | 'SALES'
+  | 'RETURN'
+  | 'FINANCE'
+  | 'SETTINGS'
+  | 'TRASH';
+
+export type ActivityActionType =
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'RESTORE'
+  | 'PURGE';
+
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  userId: string;
+  userName: string;
+  userRoleTitle: string;
+  category: ActivityCategory;
+  action: ActivityActionType;
+  title: string;
+  details: string;
+  refNo?: string;
 }
 
 export type ProductCategory = 

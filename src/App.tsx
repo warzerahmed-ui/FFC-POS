@@ -12,6 +12,7 @@ import { GiftsView } from './components/gifts/GiftsView';
 import { POSView } from './components/pos/POSView';
 import { AccountingView } from './components/accounting/AccountingView';
 import { ReportsView } from './components/reports/ReportsView';
+import { SettingsView } from './components/settings/SettingsView';
 import { LoginScreen } from './components/auth/LoginScreen';
 
 function AppContent() {
@@ -72,6 +73,7 @@ function AppContent() {
         {activeTab === 'pos' && hasAccess('pos') && <POSView />}
         {activeTab === 'accounting' && hasAccess('accounting') && <AccountingView />}
         {activeTab === 'reports' && hasAccess('reports') && <ReportsView />}
+        {activeTab === 'settings' && hasAccess('settings') && <SettingsView />}
       </main>
     </div>
   );

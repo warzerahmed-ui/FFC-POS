@@ -27,6 +27,7 @@ export type TabType =
   | 'pos'
   | 'accounting'
   | 'reports'
+  | 'settings'
   | 'dispatch';
 
 interface SidebarProps {

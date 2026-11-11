@@ -19,6 +19,7 @@ import {
   X,
   Check,
   Cloud,
+  Settings,
 } from 'lucide-react';
 
 interface MenubarProps {
@@ -147,7 +148,7 @@ const MENU_GROUPS: MenuGroup[] = [
 ];
 
 export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => {
-  const { currentUser, hasAccess, logout } = useApp();
+  const { currentUser, hasAccess, logout, factorySettings } = useApp();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -191,9 +192,15 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
 
   const isGroupActive = (group: MenuGroup) => group.items.some(isItemActive);
 
+  const isSettingsTab = activeTab === 'settings';
   const activeGroupObj = accessibleGroups.find(isGroupActive) || accessibleGroups[0];
-  const activeItemObj =
-    activeGroupObj?.items.find(isItemActive) || activeGroupObj?.items[0];
+  const activeItemObj = isSettingsTab
+    ? {
+        id: 'settings' as TabType,
+        label: 'سیتینی کارگە، ئەکاونتەکان، سۆفت دیلیت و ئەکتیڤتی لۆگ',
+        icon: Settings,
+      }
+    : activeGroupObj?.items.find(isItemActive) || activeGroupObj?.items[0];
 
   const handleSelectTab = (tab: TabType) => {
     setActiveTab(tab);
@@ -241,10 +248,10 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
             </div>
             <div>
               <div className="text-[13px] font-extrabold text-slate-900 tracking-tight leading-tight">
-                کارگەی مریشکی فرێش
+                {factorySettings.factoryName}
               </div>
               <div className="text-[10px] font-bold text-[#0071E3] tracking-tight">
-                سیستەمی کارگە و شۆرۆم
+                {factorySettings.shortCode} • {factorySettings.showroomName}
               </div>
             </div>
           </button>
@@ -352,7 +359,7 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
           </nav>
         </div>
 
-        {/* Left Side (RTL End): Live Badges, Profile & Sign Out */}
+        {/* Left Side (RTL End): Live Badges, Settings, Profile & Sign Out */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Cloud Live Pill */}
           <div className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#10B981]/25 text-[#047857] text-[11px] font-bold">
@@ -366,6 +373,23 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
             <Clock className="w-3.5 h-3.5 text-[#0071E3]" />
             <span dir="ltr">{formattedDateTime}</span>
           </div>
+
+          {/* Factory Settings Quick Pill (Admin Only) */}
+          {hasAccess('settings') && (
+            <button
+              type="button"
+              onClick={() => handleSelectTab('settings')}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                isSettingsTab
+                  ? 'bg-[#EFF6FF] border border-[#3B82F6]/45 text-[#1D4ED8] shadow-[0_1px_2px_rgba(37,99,235,0.08)]'
+                  : 'bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200/90 text-slate-700'
+              }`}
+              title="سیتینی کارگە"
+            >
+              <Settings className={`w-3.5 h-3.5 ${isSettingsTab ? 'text-[#1D4ED8]' : 'text-slate-600'}`} />
+              <span>سیتین</span>
+            </button>
+          )}
 
           {/* Profile Info */}
           <div className="hidden sm:flex items-center gap-2 pl-1 pr-1.5 py-1 rounded-full">
@@ -399,14 +423,16 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
       <div className="bg-[#F8FAFC]/95 backdrop-blur-sm border-b border-slate-200/75 px-4 lg:px-7 py-2 flex items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           <ActiveBreadIcon className="w-3.5 h-3.5 text-[#0071E3] shrink-0" />
-          <span className="text-slate-500 font-medium truncate">{activeGroupObj?.label}</span>
+          <span className="text-slate-500 font-medium truncate">
+            {isSettingsTab ? 'بەڕێوەبردن' : activeGroupObj?.label}
+          </span>
           <span className="text-slate-300">/</span>
           <span className="font-extrabold text-slate-900 truncate">{activeItemObj?.label}</span>
         </div>
 
         {/* Quick Sub-item Switch Pills inside same group on desktop OR Live status */}
         <div className="flex items-center gap-3 shrink-0">
-          {activeGroupObj && activeGroupObj.items.length > 1 && (
+          {!isSettingsTab && activeGroupObj && activeGroupObj.items.length > 1 && (
             <div className="hidden xl:flex items-center gap-1">
               {activeGroupObj.items.map(sub => {
                 const subActive = isItemActive(sub);
@@ -430,7 +456,7 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
 
           <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-extrabold text-[#047857] tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-            <span>FFC-POS • کارکردن: کراوەیە</span>
+            <span>{factorySettings.shortCode} • کارکردن: کراوەیە</span>
           </div>
         </div>
       </div>
@@ -438,6 +464,23 @@ export const Menubar: React.FC<MenubarProps> = ({ activeTab, setActiveTab }) => 
       {/* Mobile Dropdown Navigation Drawer */}
       {mobileOpen && (
         <div className="lg:hidden bg-white border-b border-slate-200 shadow-lg max-h-[75vh] overflow-y-auto p-3 space-y-3 apple-sheet">
+          {hasAccess('settings') && (
+            <button
+              type="button"
+              onClick={() => handleSelectTab('settings')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all ${
+                isSettingsTab
+                  ? 'bg-[#EFF6FF] border border-[#3B82F6]/35 text-[#1D4ED8] font-bold'
+                  : 'bg-slate-50/70 text-slate-700 font-semibold hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-4 h-4 shrink-0 text-[#0071E3]" />
+                <span>سیتینی کارگە، ئەکاونتەکان، سۆفت دیلیت و لۆگ</span>
+              </div>
+              {isSettingsTab && <Check className="w-4 h-4 text-[#2563EB]" />}
+            </button>
+          )}
           {accessibleGroups.map(group => (
             <div key={group.key} className="space-y-1">
               <div className="px-2.5 py-1 text-[11px] font-extrabold text-slate-400">
