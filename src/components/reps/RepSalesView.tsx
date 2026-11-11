@@ -16,6 +16,7 @@ import {
   Search,
   Scale,
   FileText,
+  ClipboardList,
 } from 'lucide-react';
 import { DispatchItem, DispatchOrder, ReturnItem, ReturnOrder } from '../../types';
 
@@ -35,7 +36,8 @@ const REASON_LABELS: Record<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED', string> = 
 };
 
 export const RepSalesView: React.FC = () => {
-  const { dispatches, returns, products, customers, addDispatch, addReturn } = useApp();
+  const { dispatches, returns, products, customers, custodyTransfers, addDispatch, addReturn } =
+    useApp();
 
   const [subTab, setSubTab] = useState<SubTabType>('sales');
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +96,50 @@ export const RepSalesView: React.FC = () => {
     () => dispatches.filter(d => d.destinationType === 'REP'),
     [dispatches]
   );
+
+  const selectedRepCustody = useMemo(() => {
+    const items = products
+      .map(p => {
+        const loadedKg = custodyTransfers
+          .filter(t => t.holderType === 'REP' && t.holderName === repName && t.direction === 'LOAD')
+          .reduce(
+            (s, t) => s + t.items.filter(i => i.productId === p.id).reduce((is, i) => is + i.weightKg, 0),
+            0
+          );
+        const soldKg = dispatches
+          .filter(d => d.destinationType === 'REP' && (d.repName || '') === repName)
+          .reduce(
+            (s, d) => s + d.items.filter(i => i.productId === p.id).reduce((is, i) => is + i.weightKg, 0),
+            0
+          );
+        const returnedKg = custodyTransfers
+          .filter(
+            t =>
+              t.holderType === 'REP' &&
+              t.holderName === repName &&
+              t.direction === 'RETURN_TO_READY'
+          )
+          .reduce(
+            (s, t) => s + t.items.filter(i => i.productId === p.id).reduce((is, i) => is + i.weightKg, 0),
+            0
+          );
+        const remainingKg = Math.max(0, Number((loadedKg - soldKg - returnedKg).toFixed(2)));
+        return {
+          productId: p.id,
+          productName: p.nameKu,
+          loadedKg,
+          soldKg,
+          returnedKg,
+          remainingKg,
+        };
+      })
+      .filter(i => i.loadedKg > 0 || i.remainingKg > 0);
+
+    const totalRemainingKg = Number(
+      items.reduce((s, i) => s + i.remainingKg, 0).toFixed(2)
+    );
+    return { items, totalRemainingKg };
+  }, [custodyTransfers, dispatches, products, repName]);
 
   const getLinkedReturns = (sale: DispatchOrder) =>
     returns.filter(
@@ -921,6 +967,57 @@ export const RepSalesView: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Live Rep Custody Balance Bar */}
+              <div
+                className={`p-3.5 rounded-2xl border flex flex-col gap-2 ${
+                  selectedRepCustody.totalRemainingKg > 0
+                    ? 'bg-[#0071E3]/6 border-[#0071E3]/20'
+                    : 'bg-[#FF9500]/8 border-[#FF9500]/25'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-[#1D1D1F]">
+                    <ClipboardList
+                      className={`w-4 h-4 ${
+                        selectedRepCustody.totalRemainingKg > 0
+                          ? 'text-[#0071E3]'
+                          : 'text-[#B25000]'
+                      }`}
+                    />
+                    <span>باڵانسی ماوەی سەر حسابی {repName}:</span>
+                  </div>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full font-black text-xs tabular-nums ${
+                      selectedRepCustody.totalRemainingKg > 0
+                        ? 'bg-[#0071E3] text-white'
+                        : 'bg-[#FF9500] text-white'
+                    }`}
+                  >
+                    {selectedRepCustody.totalRemainingKg.toLocaleString()} کگم ماوە لەسەر حساب
+                  </span>
+                </div>
+
+                {selectedRepCustody.items.filter(i => i.remainingKg > 0).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedRepCustody.items
+                      .filter(i => i.remainingKg > 0)
+                      .map(item => (
+                        <span
+                          key={item.productId}
+                          className="px-2.5 py-1 rounded-xl bg-white border border-black/[0.06] text-[11px] font-bold text-[#1D1D1F] tabular-nums"
+                        >
+                          {item.productName}:{' '}
+                          <span className="text-[#0071E3]">{item.remainingKg} کگم</span>
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#B25000] font-semibold">
+                    هیچ بڕە بەرهەمێکی ماوە لەسەر عەهدەی ئەم مەندوبە نییە — سەرەتا لە کۆگای ئامادە یان حسابی مەندوب باری بۆ بنێرە.
+                  </p>
+                )}
               </div>
 
               {/* Payment Type */}

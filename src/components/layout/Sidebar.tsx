@@ -5,6 +5,7 @@ import {
   Truck,
   Factory,
   PackageCheck,
+  ClipboardList,
   Send,
   Gift,
   ShoppingBag,
@@ -19,6 +20,7 @@ export type TabType =
   | 'intake'
   | 'production'
   | 'ready-for-sale'
+  | 'custody'
   | 'rep-sales'
   | 'gifts'
   | 'returns'
@@ -47,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'intake' as TabType, label: '١. وەرگرتنی مریشک (کێڵگە)', icon: Truck, badge: 'قۆناغی ١' },
     { id: 'production' as TabType, label: '٢. سەربڕین و پارچەکردن', icon: Factory, badge: 'قۆناغی ٢' },
     { id: 'ready-for-sale' as TabType, label: '٣. ئامادە بۆ فرۆشتن', icon: PackageCheck, badge: 'قۆناغی ٣' },
+    { id: 'custody' as TabType, label: 'حسابی مەندوب و فرۆشگا', icon: ClipboardList, badge: 'عەهدە' },
     { id: 'rep-sales' as TabType, label: 'فرۆشتنی مەندوب و گەڕاوە', icon: Send, badge: 'مارکێت' },
     { id: 'gifts' as TabType, label: 'دیاری و هەدیە', icon: Gift, badge: 'بەلاش' },
     { id: 'pos' as TabType, label: 'فرۆشگای تایبەت (POS)', icon: ShoppingBag, badge: 'بارکۆد' },

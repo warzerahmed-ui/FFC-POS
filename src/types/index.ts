@@ -262,3 +262,20 @@ export interface BranchExpense {
   amount: number;
   notes?: string;
 }
+
+export interface CustodyTransfer {
+  id: string;
+  receiptNo: string;
+  date: string;
+  time: string;
+  holderType: 'REP' | 'BRANCH';
+  holderName: string;
+  direction: 'LOAD' | 'RETURN_TO_READY';
+  items: {
+    productId: string;
+    productName: string;
+    weightKg: number;
+  }[];
+  totalWeightKg: number;
+  notes?: string;
+}

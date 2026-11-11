@@ -19,6 +19,7 @@ import {
   Send,
   Store,
   User,
+  ClipboardList,
 } from 'lucide-react';
 import { DispatchItem, DispatchOrder, ProductItem, ReturnOrder } from '../../types';
 import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
@@ -47,6 +48,7 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
     customers,
     addDispatch,
     addBranchDelivery,
+    loadToRepCustody,
     convertReturnOrder,
     updateProductPrice,
   } = useApp();
@@ -229,6 +231,21 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
         totalCost: queuedTotalIQD,
         notes: sendNotes.trim() || 'ناردنی ڕۆژانە لە کۆگای ئامادەوە بۆ فرۆشگای POS',
       });
+    } else if (channel === 'REP') {
+      loadToRepCustody({
+        receiptNo: cleanReceipt,
+        date: sendDate,
+        time: sendTime,
+        holderType: 'REP',
+        holderName: repName,
+        items: queuedItems.map(i => ({
+          productId: i.productId,
+          productName: i.productName,
+          weightKg: i.weightKg,
+        })),
+        totalWeightKg: queuedTotalKg,
+        notes: sendNotes.trim() || `ناردنی ڕۆژانە بۆ حسابی مەندوب (${repName})`,
+      });
     } else {
       const finalCustomer =
         customerChoice === 'CASH_WALKIN'
@@ -246,20 +263,16 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
         manualReceiptNo: cleanReceipt,
         date: sendDate,
         time: sendTime,
-        destinationType: channel,
+        destinationType: 'DIRECT',
         destinationName: finalCustomer,
         customerName: finalCustomer,
-        repName: channel === 'REP' ? repName : 'فرۆشتنی ڕاستەوخۆی کۆگای ئامادە',
+        repName: 'فرۆشتنی ڕاستەوخۆی کۆگای ئامادە',
         paymentType,
         items: queuedItems,
         totalWeightKg: queuedTotalKg,
         totalAmount: queuedTotalIQD,
         status: 'COMPLETED',
-        notes:
-          sendNotes.trim() ||
-          (channel === 'REP'
-            ? 'ناردنی ڕۆژانە لە کۆگای ئامادەوە بۆ مەندوب'
-            : 'فرۆشتنی ڕاستەوخۆ لە کۆگای ئامادە'),
+        notes: sendNotes.trim() || 'فرۆشتنی ڕاستەوخۆ لە کۆگای ئامادە',
       });
     }
 
@@ -359,6 +372,17 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
             <Send className="w-4 h-4" />
             ناردنی ڕۆژانە بۆ فرۆشتن
           </button>
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('custody')}
+              className="px-4 py-2.5 bg-[#AF52DE]/12 hover:bg-[#AF52DE]/20 text-[#AF52DE] font-bold text-xs rounded-full flex items-center gap-1.5 transition-all"
+            >
+              <ClipboardList className="w-4 h-4" />
+              حسابی مەندوب و فرۆشگا
+            </button>
+          )}
 
           <button
             type="button"
@@ -883,26 +907,33 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
                     ))}
                   </select>
                 </div>
+              ) : channel === 'REP' ? (
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="block text-[#515154] font-semibold mb-1 flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-[#0071E3]" />
+                      ناردن بۆ حسابی مەندوب (عەهدەی ڕۆژانە) *
+                    </label>
+                    <select
+                      value={repName}
+                      onChange={e => setRepName(e.target.value)}
+                      className="apple-input w-full px-3.5 py-2 font-semibold"
+                    >
+                      {REP_PRESETS.map((r, i) => (
+                        <option key={i} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-[#0071E3]/6 border border-[#0071E3]/15 text-[11px] text-[#1D1D1F] leading-relaxed">
+                    ئەم بارە دەچێتە سەر <span className="font-bold text-[#0071E3]">حسابی عەهدەی مەندوب</span>؛
+                    دواتر ئەوەی فرۆشرا بە وەسڵ لە بەشی فرۆشتنی مەندوب دادەبەزێت و ماوەکەش لەسەری دەمێنێتەوە هەتا دەگەڕێتەوە کۆگای ئامادە.
+                  </div>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {channel === 'REP' && (
-                    <div>
-                      <label className="block text-[#515154] font-semibold mb-1">مەندوب *</label>
-                      <select
-                        value={repName}
-                        onChange={e => setRepName(e.target.value)}
-                        className="apple-input w-full px-3.5 py-2 font-semibold"
-                      >
-                        {REP_PRESETS.map((r, i) => (
-                          <option key={i} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className={channel === 'DIRECT' ? 'sm:col-span-2' : ''}>
+                  <div className="sm:col-span-2">
                     <label className="block text-[#515154] font-semibold mb-1">
                       کڕیار / مارکێت *
                     </label>
@@ -913,10 +944,10 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
                     >
                       <option value="CASH_WALKIN">کڕیاری ڕاستەوخۆ (کاش)</option>
                       {customers.map(c => (
-                          <option key={c.id} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))}
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
                       <option value="CUSTOM">+ کڕیارێکی تر (دەستی بنووسە)...</option>
                     </select>
                     {customerChoice === 'CUSTOM' && (

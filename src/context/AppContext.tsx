@@ -13,6 +13,7 @@ import {
   INITIAL_BRANCH_STOCK,
   INITIAL_BRANCH_DELIVERIES,
   INITIAL_BRANCH_EXPENSES,
+  INITIAL_CUSTODY_TRANSFERS,
   INITIAL_USERS,
 } from '../data/mockData';
 import {
@@ -29,6 +30,7 @@ import {
   BranchStockItem,
   BranchDelivery,
   BranchExpense,
+  CustodyTransfer,
   User,
 } from '../types';
 
@@ -48,6 +50,9 @@ interface AppContextType {
   branchStock: BranchStockItem[];
   branchDeliveries: BranchDelivery[];
   branchExpenses: BranchExpense[];
+
+  // Rep & Branch Custody Transfers
+  custodyTransfers: CustodyTransfer[];
 
   // Authentication & Users
   currentUser: User;
@@ -82,6 +87,10 @@ interface AppContextType {
   addBranchExpense: (expense: Omit<BranchExpense, 'id'>) => void;
   updateBranchStockItem: (productId: string, updates: Partial<BranchStockItem>) => void;
 
+  // Custody Actions (Rep & Branch Stock Reconciliation)
+  loadToRepCustody: (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => void;
+  returnUnsoldToReadyStock: (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => void;
+
   // Barcode decoding utility
   parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
 }
@@ -102,6 +111,7 @@ const STORAGE_KEYS = {
   BRANCH_STOCK: 'fresh_chicken_branch_stock_v4',
   BRANCH_DELIVERIES: 'fresh_chicken_branch_deliveries_v4',
   BRANCH_EXPENSES: 'fresh_chicken_branch_expenses_v4',
+  CUSTODY_TRANSFERS: 'fresh_chicken_custody_v4',
   USERS: 'fresh_chicken_users_v4',
   CURRENT_USER: 'fresh_chicken_current_user_v4',
 };
@@ -172,6 +182,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_BRANCH_EXPENSES;
   });
 
+  const [custodyTransfers, setCustodyTransfers] = useState<CustodyTransfer[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CUSTODY_TRANSFERS);
+    return saved ? JSON.parse(saved) : INITIAL_CUSTODY_TRANSFERS;
+  });
+
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS);
     return saved ? JSON.parse(saved) : INITIAL_USERS;
@@ -208,6 +223,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.BRANCH_STOCK, JSON.stringify(branchStock)); }, [branchStock]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.BRANCH_DELIVERIES, JSON.stringify(branchDeliveries)); }, [branchDeliveries]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.BRANCH_EXPENSES, JSON.stringify(branchExpenses)); }, [branchExpenses]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.CUSTODY_TRANSFERS, JSON.stringify(custodyTransfers)); }, [custodyTransfers]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser)); }, [currentUser]);
 
@@ -217,7 +233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
     if (currentUser.role === 'REP') {
-      return ['dashboard', 'rep-sales', 'gifts', 'returns'].includes(tab);
+      return ['dashboard', 'custody', 'rep-sales', 'gifts', 'returns'].includes(tab);
     }
     if (currentUser.role === 'CASHIER') {
       return ['dashboard', 'pos'].includes(tab);
@@ -402,13 +418,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    setProducts(prev => prev.map(p => {
-      const item = dispatch.items.find(i => i.productId === p.id);
-      if (item) {
-        return { ...p, inStockKg: Math.max(0, p.inStockKg - item.weightKg) };
-      }
-      return p;
-    }));
+    // Rep sales are reconciled from their daily Custody Account; Direct & Gift deduct directly from Ready Stock
+    if (dispatch.destinationType === 'DIRECT' || dispatch.destinationType === 'GIFT') {
+      setProducts(prev => prev.map(p => {
+        const item = dispatch.items.find(i => i.productId === p.id);
+        if (item) {
+          return { ...p, inStockKg: Math.max(0, Number((p.inStockKg - item.weightKg).toFixed(2))) };
+        }
+        return p;
+      }));
+    }
   };
 
   const addReturn = (newReturn: Omit<ReturnOrder, 'id'>) => {
@@ -605,6 +624,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProducts(prev => prev.map(p => p.id === id ? { ...p, pricePerKg: newPrice, costPerKg: newCost } : p));
   };
 
+  const loadToRepCustody = (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => {
+    const id = `cust-ld-${Date.now()}`;
+    const record: CustodyTransfer = { ...transfer, id, direction: 'LOAD' };
+    setCustodyTransfers(prev => [record, ...prev]);
+
+    setProducts(prev =>
+      prev.map(p => {
+        const sent = transfer.items
+          .filter(i => i.productId === p.id)
+          .reduce((s, i) => s + i.weightKg, 0);
+        return sent > 0 ? { ...p, inStockKg: Math.max(0, Number((p.inStockKg - sent).toFixed(2))) } : p;
+      })
+    );
+  };
+
+  const returnUnsoldToReadyStock = (transfer: Omit<CustodyTransfer, 'id' | 'direction'>) => {
+    const id = `cust-ret-${Date.now()}`;
+    const record: CustodyTransfer = { ...transfer, id, direction: 'RETURN_TO_READY' };
+    setCustodyTransfers(prev => [record, ...prev]);
+
+    // Add unsold weights back into Ready Stock (کۆگای ئامادە)
+    setProducts(prev =>
+      prev.map(p => {
+        const retKg = transfer.items
+          .filter(i => i.productId === p.id)
+          .reduce((s, i) => s + i.weightKg, 0);
+        return retKg > 0 ? { ...p, inStockKg: Number((p.inStockKg + retKg).toFixed(2)) } : p;
+      })
+    );
+
+    // If returned from Dedicated Store POS (Branch), deduct from branchStock
+    if (transfer.holderType === 'BRANCH') {
+      setBranchStock(prev =>
+        prev.map(bs => {
+          const retKg = transfer.items
+            .filter(i => i.productId === bs.productId)
+            .reduce((s, i) => s + i.weightKg, 0);
+          return retKg > 0 ? { ...bs, inStockKg: Math.max(0, Number((bs.inStockKg - retKg).toFixed(2))) } : bs;
+        })
+      );
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -621,6 +683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         branchStock,
         branchDeliveries,
         branchExpenses,
+        custodyTransfers,
         currentUser,
         users,
         login,
@@ -644,6 +707,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addBranchExpense,
         updateBranchStockItem,
         updateProductPrice,
+        loadToRepCustody,
+        returnUnsoldToReadyStock,
         parseWeightBarcode,
       }}
     >

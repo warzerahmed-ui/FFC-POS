@@ -12,6 +12,7 @@ import {
   BranchStockItem,
   BranchDelivery,
   BranchExpense,
+  CustodyTransfer,
   User,
 } from '../types';
 
@@ -559,5 +560,39 @@ export const INITIAL_BRANCH_EXPENSES: BranchExpense[] = [
     category: 'ELECTRICITY',
     amount: 85000,
     notes: 'مانگی ١١',
+  },
+];
+
+export const INITIAL_CUSTODY_TRANSFERS: CustodyTransfer[] = [
+  {
+    id: 'cust-tr-1',
+    receiptNo: 'LD-101',
+    date: '2026-11-04',
+    time: '07:30 ص',
+    holderType: 'REP',
+    holderName: 'مەندوب شوان (هێڵی بەختیاری)',
+    direction: 'LOAD',
+    items: [
+      { productId: 'prod-1', productName: 'مریشکی تەواو فرێش (پاكکراو)', weightKg: 210.0 },
+      { productId: 'prod-2', productName: 'سنگی مریشکی بێ ئێسک', weightKg: 100.0 },
+      { productId: 'prod-3', productName: 'ڕانی مریشک (تەواو)', weightKg: 110.0 },
+    ],
+    totalWeightKg: 420.0,
+    notes: 'باری بەیانی لە کۆگای ئامادەوە بۆ حسابی مەندوب شوان',
+  },
+  {
+    id: 'cust-tr-2',
+    receiptNo: 'LD-102',
+    date: '2026-11-05',
+    time: '07:45 ص',
+    holderType: 'REP',
+    holderName: 'مەندوب هێمن (هێڵی تووی مەلیك)',
+    direction: 'LOAD',
+    items: [
+      { productId: 'prod-1', productName: 'مریشکی تەواو فرێش (پاكکراو)', weightKg: 150.0 },
+      { productId: 'prod-4', productName: 'باڵی مریشک', weightKg: 45.0 },
+    ],
+    totalWeightKg: 195.0,
+    notes: 'باری بەیانی لە کۆگای ئامادەوە بۆ حسابی مەندوب هێمن',
   },
 ];

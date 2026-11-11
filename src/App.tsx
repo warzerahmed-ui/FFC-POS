@@ -6,6 +6,7 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { LiveIntakeView } from './components/intake/LiveIntakeView';
 import { SlaughterCuttingView } from './components/production/SlaughterCuttingView';
 import { ReadyForSaleView } from './components/ready/ReadyForSaleView';
+import { CustodyView } from './components/custody/CustodyView';
 import { RepSalesView } from './components/reps/RepSalesView';
 import { GiftsView } from './components/gifts/GiftsView';
 import { POSView } from './components/pos/POSView';
@@ -70,6 +71,9 @@ function AppContent() {
           )}
           {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && (
             <ReadyForSaleView onNavigate={setActiveTab} />
+          )}
+          {activeTab === 'custody' && hasAccess('custody') && (
+            <CustodyView onNavigate={setActiveTab} />
           )}
           {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
             hasAccess('rep-sales') && <RepSalesView />}
