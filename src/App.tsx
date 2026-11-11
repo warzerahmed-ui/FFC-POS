@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Navbar } from './components/layout/Navbar';
-import { Sidebar, TabType } from './components/layout/Sidebar';
+import { Menubar } from './components/layout/Menubar';
+import { TabType } from './components/layout/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { LiveIntakeView } from './components/intake/LiveIntakeView';
 import { SlaughterCuttingView } from './components/production/SlaughterCuttingView';
@@ -16,7 +16,6 @@ import { LoginScreen } from './components/auth/LoginScreen';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedIntakeForProductionId, setSelectedIntakeForProductionId] = useState<string | null>(null);
   const { hasAccess, currentUser, isAuthenticated } = useApp();
 
@@ -43,46 +42,37 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] flex flex-col selection:bg-[#0071E3] selection:text-white">
-      <Navbar onToggleMobileMenu={() => setMobileMenuOpen(true)} />
+    <div className="min-h-screen bg-[#F4F7FA] text-[#1D1D1F] flex flex-col selection:bg-[#0071E3] selection:text-white">
+      <Menubar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="flex-1 flex">
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          mobileOpen={mobileMenuOpen}
-          onCloseMobile={() => setMobileMenuOpen(false)}
-        />
-
-        <main className="flex-1 p-4 md:p-6 lg:p-7 max-w-[1440px] mx-auto w-full overflow-x-hidden">
-          {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
-          {activeTab === 'intake' && hasAccess('intake') && (
-            <LiveIntakeView
-              onNavigate={setActiveTab}
-              onSendToSlaughter={handleSendToSlaughter}
-            />
-          )}
-          {activeTab === 'production' && hasAccess('production') && (
-            <SlaughterCuttingView
-              onNavigate={setActiveTab}
-              preselectedIntakeId={selectedIntakeForProductionId}
-              onClearPreselect={() => setSelectedIntakeForProductionId(null)}
-            />
-          )}
-          {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && (
-            <ReadyForSaleView onNavigate={setActiveTab} />
-          )}
-          {activeTab === 'custody' && hasAccess('custody') && (
-            <CustodyView onNavigate={setActiveTab} />
-          )}
-          {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
-            hasAccess('rep-sales') && <RepSalesView />}
-          {activeTab === 'gifts' && hasAccess('gifts') && <GiftsView />}
-          {activeTab === 'pos' && hasAccess('pos') && <POSView />}
-          {activeTab === 'accounting' && hasAccess('accounting') && <AccountingView />}
-          {activeTab === 'reports' && hasAccess('reports') && <ReportsView />}
-        </main>
-      </div>
+      <main className="flex-1 p-4 md:p-6 lg:p-7 max-w-[1440px] mx-auto w-full overflow-x-hidden">
+        {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
+        {activeTab === 'intake' && hasAccess('intake') && (
+          <LiveIntakeView
+            onNavigate={setActiveTab}
+            onSendToSlaughter={handleSendToSlaughter}
+          />
+        )}
+        {activeTab === 'production' && hasAccess('production') && (
+          <SlaughterCuttingView
+            onNavigate={setActiveTab}
+            preselectedIntakeId={selectedIntakeForProductionId}
+            onClearPreselect={() => setSelectedIntakeForProductionId(null)}
+          />
+        )}
+        {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && (
+          <ReadyForSaleView onNavigate={setActiveTab} />
+        )}
+        {activeTab === 'custody' && hasAccess('custody') && (
+          <CustodyView onNavigate={setActiveTab} />
+        )}
+        {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
+          hasAccess('rep-sales') && <RepSalesView />}
+        {activeTab === 'gifts' && hasAccess('gifts') && <GiftsView />}
+        {activeTab === 'pos' && hasAccess('pos') && <POSView />}
+        {activeTab === 'accounting' && hasAccess('accounting') && <AccountingView />}
+        {activeTab === 'reports' && hasAccess('reports') && <ReportsView />}
+      </main>
     </div>
   );
 }
