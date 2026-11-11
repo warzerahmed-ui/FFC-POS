@@ -1,5 +1,18 @@
 // Core Types for Fresh Chicken ERP & POS System
 
+export type TabType =
+  | 'dashboard'
+  | 'intake'
+  | 'production'
+  | 'ready-for-sale'
+  | 'custody'
+  | 'rep-sales'
+  | 'gifts'
+  | 'pos'
+  | 'accounting'
+  | 'reports'
+  | 'settings';
+
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'ACCOUNTANT' | 'REP' | 'CASHIER';
 
 export interface User {
@@ -181,6 +194,7 @@ export interface DispatchOrder {
   totalWeightKg: number;
   totalAmount: number;
   totalFactoryCost?: number;
+  sourceCustody?: 'READY' | 'REP';
   status: 'DISPATCHED' | 'COMPLETED' | 'RETURN_INSPECTED';
   notes?: string;
 }

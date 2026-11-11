@@ -20,13 +20,6 @@ import {
 import { DailySettlement } from '../../types';
 import { FactoryLogo } from '../layout/FactoryLogo';
 
-const REP_PRESETS = [
-  'مەندوب شوان (هێڵی بەختیاری)',
-  'مەندوب هێمن (هێڵی تووی مەلیك)',
-  'مەندوب ئارام (هێڵی سەرچنار و ڕاپەڕین)',
-  'مەندوب کامەران (هێڵی عەربەت و شارەزوور)',
-];
-
 const BRANCH_ACCOUNT_NAME = 'فرۆشگای تایبەت (POS / شۆرۆم)';
 
 interface DailyReceiptRow {
@@ -75,6 +68,7 @@ export const DailySettlementView: React.FC = () => {
     currentUser,
     addDailySettlement,
     factorySettings,
+    repNames,
   } = useApp();
 
   const todayISO = new Date().toISOString().split('T')[0];
@@ -107,7 +101,7 @@ export const DailySettlementView: React.FC = () => {
 
   // Build daily account summaries for selectedDate
   const accountSummaries: AccountDailySummary[] = useMemo(() => {
-    const repSet = new Set<string>(REP_PRESETS);
+    const repSet = new Set<string>(repNames);
     dispatches
       .filter(d => d.destinationType === 'REP' && d.repName)
       .forEach(d => repSet.add(d.repName!));

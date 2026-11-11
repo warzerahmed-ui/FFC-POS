@@ -14,7 +14,7 @@ import {
   Calculator,
   FileSpreadsheet,
 } from 'lucide-react';
-import { TabType } from '../layout/Sidebar';
+import { TabType } from '../../types';
 
 interface DashboardViewProps {
   setActiveTab: (tab: TabType) => void;

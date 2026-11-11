@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Truck, Plus, FileText, Search, X, Check, Scissors, ArrowLeft } from 'lucide-react';
-import { TabType } from '../layout/Sidebar';
+import { TabType } from '../../types';
 
 interface LiveIntakeViewProps {
   onNavigate?: (tab: TabType) => void;

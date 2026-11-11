@@ -15,7 +15,7 @@ import { DispatchItem, DispatchOrder } from '../../types';
 import { FactoryLogo } from '../layout/FactoryLogo';
 
 export const GiftsView: React.FC = () => {
-  const { dispatches, products, factorySettings, addDispatch } = useApp();
+  const { dispatches, products, factorySettings, repNames, addDispatch } = useApp();
 
   const [showModal, setShowModal] = useState(false);
   const [selectedReceiptForPrint, setSelectedReceiptForPrint] = useState<DispatchOrder | null>(null);
@@ -27,7 +27,8 @@ export const GiftsView: React.FC = () => {
   const [time, setTime] = useState(
     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   );
-  const [repName, setRepName] = useState('مەندوب شوان');
+  const [sourceCustody, setSourceCustody] = useState<'READY' | 'REP'>('READY');
+  const [repName, setRepName] = useState(repNames[0] || 'مەندوب شوان');
   const [recipientName, setRecipientName] = useState('');
   const [notes, setNotes] = useState('دیاری و بەخشین — لەسەر خەڵک فری (٠ دینار) و تێچوو لەسەر کارگە');
 
@@ -127,6 +128,7 @@ export const GiftsView: React.FC = () => {
       repName,
       customerName: recipientName.trim(),
       paymentType: 'CASH',
+      sourceCustody,
       items: itemsList,
       totalWeightKg: totalWeight,
       totalAmount: 0, // Always 0 IQD (Free on recipient)
@@ -408,14 +410,18 @@ export const GiftsView: React.FC = () => {
                     <User className="w-3.5 h-3.5 text-[#AF52DE]" />
                     ناوی مەندوب / بەخشەر *
                   </label>
-                  <input
-                    type="text"
-                    required
+                  <select
                     value={repName}
                     onChange={(e) => setRepName(e.target.value)}
-                    placeholder="ناوی بەخشەر..."
                     className="w-full bg-[#F5F5F7] border border-black/[0.06] rounded-xl px-3.5 py-2.5 text-[#1D1D1F] outline-none focus:border-[#AF52DE] font-semibold"
-                  />
+                  >
+                    {repNames.map(r => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                    <option value="کارگێڕی کارگە">کارگێڕی کارگە</option>
+                  </select>
                 </div>
 
                 <div>
@@ -431,6 +437,40 @@ export const GiftsView: React.FC = () => {
                     onChange={(e) => setRecipientName(e.target.value)}
                     className="w-full bg-[#F5F5F7] border border-black/[0.06] rounded-xl px-3.5 py-2.5 text-[#1D1D1F] outline-none focus:border-[#AF52DE] font-bold"
                   />
+                </div>
+              </div>
+
+              {/* Source Custody Selector */}
+              <div className="p-3 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <span className="font-bold text-[#1D1D1F] block">سەرچاوەی دەرکردنی کێش:</span>
+                  <span className="text-[11px] text-[#86868B]">
+                    دیارییەکە لە کۆگای ئامادەی کارگە کەم بکرێتەوە یان لە عەهدەی ئەو مەندوبە؟
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSourceCustody('READY')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                      sourceCustody === 'READY'
+                        ? 'bg-[#AF52DE] text-white shadow-sm'
+                        : 'bg-white text-[#515154] border border-black/[0.06]'
+                    }`}
+                  >
+                    کۆگای ئامادە (کارگە)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSourceCustody('REP')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                      sourceCustody === 'REP'
+                        ? 'bg-[#0071E3] text-white shadow-sm'
+                        : 'bg-white text-[#515154] border border-black/[0.06]'
+                    }`}
+                  >
+                    عەهدەی مەندوب
+                  </button>
                 </div>
               </div>
 

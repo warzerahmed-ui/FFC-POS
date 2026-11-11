@@ -23,13 +23,6 @@ import { FactoryLogo } from '../layout/FactoryLogo';
 
 type SubTabType = 'sales' | 'returns';
 
-const REP_PRESETS = [
-  'مەندوب شوان (هێڵی بەختیاری)',
-  'مەندوب هێمن (هێڵی تووی مەلیك)',
-  'مەندوب ئارام (هێڵی سەرچنار و ڕاپەڕین)',
-  'مەندوب کامەران (هێڵی عەربەت و شارەزوور)',
-];
-
 const REASON_LABELS: Record<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED', string> = {
   EXPIRED_3_DAYS: 'تەلەفی ٣ ڕۆژ لە مارکێت (سەرفنەکراو)',
   DAMAGED: 'تێکچوو لە کاتی گواستنەوە',
@@ -37,7 +30,7 @@ const REASON_LABELS: Record<'EXPIRED_3_DAYS' | 'DAMAGED' | 'SPOILED', string> = 
 };
 
 export const RepSalesView: React.FC = () => {
-  const { dispatches, returns, products, customers, custodyTransfers, factorySettings, addDispatch, addReturn } =
+  const { dispatches, returns, products, customers, custodyTransfers, factorySettings, repNames, addDispatch, addReturn } =
     useApp();
 
   const [subTab, setSubTab] = useState<SubTabType>('sales');
@@ -50,7 +43,7 @@ export const RepSalesView: React.FC = () => {
   const [time, setTime] = useState(
     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
   );
-  const [repName, setRepName] = useState(REP_PRESETS[0]);
+  const [repName, setRepName] = useState(repNames[0] || '');
   const [customerName, setCustomerName] = useState(
     customers[0]?.name || 'سوپەرمارکێتی بەختەوەری (بەختیاری)'
   );
@@ -108,7 +101,12 @@ export const RepSalesView: React.FC = () => {
             0
           );
         const soldKg = dispatches
-          .filter(d => d.destinationType === 'REP' && (d.repName || '') === repName)
+          .filter(
+            d =>
+              (d.destinationType === 'REP' ||
+                (d.destinationType === 'GIFT' && d.sourceCustody === 'REP')) &&
+              (d.repName || '') === repName
+          )
           .reduce(
             (s, d) => s + d.items.filter(i => i.productId === p.id).reduce((is, i) => is + i.weightKg, 0),
             0
@@ -301,6 +299,27 @@ export const RepSalesView: React.FC = () => {
     if (itemsList.length === 0) {
       alert('تکایە بەلایەنی کەم یەک بەرهەمی فرۆشراو زیاد بکە');
       return;
+    }
+
+    // Warn if Rep is selling more weight than available in their Custody balance
+    const custodyShortages: string[] = [];
+    const groupedByProd = itemsList.reduce<Record<string, { name: string; weight: number }>>((acc, item) => {
+      if (!acc[item.productId]) acc[item.productId] = { name: item.productName, weight: 0 };
+      acc[item.productId].weight += item.weightKg;
+      return acc;
+    }, {});
+    Object.entries(groupedByProd).forEach(([prodId, info]) => {
+      const custItem = selectedRepCustody.items.find(c => c.productId === prodId);
+      const avail = custItem ? custItem.remainingKg : 0;
+      if (info.weight > avail + 0.01) {
+        custodyShortages.push(`${info.name}: فرۆشتن ${info.weight} کگم / عەهدەی ماوە ${avail} کگم`);
+      }
+    });
+    if (custodyShortages.length > 0) {
+      const proceed = window.confirm(
+        `ئاگاداربە: عەهدەی ${repName} بۆ ئەم بەرهەمانە کەمترە لە کێشی فرۆشراو:\n\n• ${custodyShortages.join('\n• ')}\n\nپێویستە سەرەتا لە قۆناغی ٤ بار بخەیتە سەر عەهدەکەی. دەتەوێت هەر تۆماری بکەیت؟`
+      );
+      if (!proceed) return;
     }
 
     const finalCustomer = customCustomer.trim() || customerName;
@@ -943,7 +962,7 @@ export const RepSalesView: React.FC = () => {
                     onChange={e => setRepName(e.target.value)}
                     className="w-full bg-[#F5F5F7] border border-black/[0.06] rounded-xl px-3.5 py-2.5 text-[#1D1D1F] outline-none focus:border-[#0071E3] font-semibold"
                   >
-                    {REP_PRESETS.map((rep, idx) => (
+                    {repNames.map((rep, idx) => (
                       <option key={idx} value={rep}>
                         {rep}
                       </option>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   INITIAL_PRODUCTS,
   INITIAL_INTAKES,
@@ -152,8 +152,15 @@ interface AppContextType {
   activityLogs: ActivityLogEntry[];
   clearActivityLogs: () => void;
 
+  // Rep list (from Settings REP users + historical dispatches/custody/settlements)
+  repNames: string[];
+
   // Barcode decoding utility
   parseWeightBarcode: (barcodeStr: string) => { product?: ProductItem; branchItem?: BranchStockItem; weightKg: number; valid: boolean };
+
+  // Full System Backup & Restore
+  exportSystemBackup: () => string;
+  importSystemBackup: (jsonStr: string) => { ok: boolean; error?: string; stats?: string };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -580,8 +587,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Rep sales are reconciled from their daily Custody Account; Direct & Gift deduct directly from Ready Stock
-    if (dispatch.destinationType === 'DIRECT' || dispatch.destinationType === 'GIFT') {
+    // Rep sales & Rep-custody gifts reconcile from Rep Custody; Direct & Factory Gifts deduct from Ready Stock
+    if (
+      dispatch.destinationType === 'DIRECT' ||
+      (dispatch.destinationType === 'GIFT' && dispatch.sourceCustody !== 'REP')
+    ) {
       setProducts(prev => prev.map(p => {
         const item = dispatch.items.find(i => i.productId === p.id);
         if (item) {
@@ -1083,6 +1093,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = intakes.find(i => i.id === entityId);
       if (!target) return false;
       setIntakes(prev => prev.filter(i => i.id !== entityId));
+      if (target.paymentStatus === 'DEBT' || target.paymentStatus === 'PARTIAL') {
+        const unpaid = Math.max(0, target.totalAmount - (target.paidAmount || 0));
+        if (unpaid > 0) {
+          setSuppliers(prev =>
+            prev.map(s =>
+              s.name.includes(target.farmName) || target.farmName.includes(s.name)
+                ? { ...s, currentBalance: Math.max(0, s.currentBalance - unpaid) }
+                : s
+            )
+          );
+        }
+      }
       entry = {
         entityType,
         entityId,
@@ -1095,6 +1117,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = dispatches.find(d => d.id === entityId);
       if (!target) return false;
       setDispatches(prev => prev.filter(d => d.id !== entityId));
+      if ((target.destinationType === 'REP' || target.destinationType === 'DIRECT') && target.paymentType === 'CREDIT') {
+        const custName = target.customerName || target.destinationName;
+        if (custName) {
+          setCustomers(prev =>
+            prev.map(c =>
+              c.name.toLowerCase().includes(custName.toLowerCase()) ||
+              custName.toLowerCase().includes(c.name.toLowerCase())
+                ? { ...c, currentDebt: Math.max(0, c.currentDebt - target.totalAmount) }
+                : c
+            )
+          );
+        }
+      }
+      if (
+        target.destinationType === 'DIRECT' ||
+        (target.destinationType === 'GIFT' && target.sourceCustody !== 'REP')
+      ) {
+        setProducts(prev =>
+          prev.map(p => {
+            const retKg = target.items
+              .filter(i => i.productId === p.id)
+              .reduce((s, i) => s + i.weightKg, 0);
+            return retKg > 0 ? { ...p, inStockKg: Number((p.inStockKg + retKg).toFixed(2)) } : p;
+          })
+        );
+      }
       entry = {
         entityType,
         entityId,
@@ -1107,6 +1155,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = posSales.find(s => s.id === entityId);
       if (!target) return false;
       setPosSales(prev => prev.filter(s => s.id !== entityId));
+      // Rollback branch stock
+      setBranchStock(prev =>
+        prev.map(bs => {
+          const soldKg = target.items
+            .filter(i => i.productId === bs.productId)
+            .reduce((sum, i) => sum + i.weightKg, 0);
+          return soldKg > 0 ? { ...bs, inStockKg: Number((bs.inStockKg + soldKg).toFixed(2)) } : bs;
+        })
+      );
+      // Rollback customer debt if CREDIT/DEBT
+      if (target.paymentType === 'DEBT' && target.total > 0) {
+        const custName = (target.customerName || '').trim();
+        setCustomers(prev =>
+          prev.map(c =>
+            (target.customerId && c.id === target.customerId) ||
+            (custName &&
+              (c.name.toLowerCase().includes(custName.toLowerCase()) ||
+                custName.toLowerCase().includes(c.name.toLowerCase())))
+              ? { ...c, currentDebt: Math.max(0, c.currentDebt - target.total) }
+              : c
+          )
+        );
+      }
       entry = {
         entityType,
         entityId,
@@ -1119,6 +1190,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = returns.find(r => r.id === entityId);
       if (!target) return false;
       setReturns(prev => prev.filter(r => r.id !== entityId));
+      const deduction = target.totalCustomerDeduction ?? target.totalLossAmount;
+      if (target.customerName && deduction > 0) {
+        setCustomers(prev =>
+          prev.map(c =>
+            c.name.includes(target.customerName!) || target.customerName!.includes(c.name)
+              ? { ...c, currentDebt: c.currentDebt + deduction }
+              : c
+          )
+        );
+      }
+      if (target.sourceType === 'BRANCH') {
+        setBranchStock(prev =>
+          prev.map(bs => {
+            const retKg = target.items
+              .filter(i => i.productId === bs.productId)
+              .reduce((s, i) => s + i.weightKg, 0);
+            return retKg > 0 ? { ...bs, inStockKg: Number((bs.inStockKg + retKg).toFixed(2)) } : bs;
+          })
+        );
+      }
       entry = {
         entityType,
         entityId,
@@ -1131,6 +1222,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const target = vouchers.find(v => v.id === entityId);
       if (!target) return false;
       setVouchers(prev => prev.filter(v => v.id !== entityId));
+      const totalSettled = target.amount + (target.discount || 0);
+      if (target.partyType === 'CUSTOMER') {
+        setCustomers(prev =>
+          prev.map(c =>
+            c.id === target.partyId ? { ...c, currentDebt: c.currentDebt + totalSettled } : c
+          )
+        );
+      } else {
+        setSuppliers(prev =>
+          prev.map(s =>
+            s.id === target.partyId ? { ...s, currentBalance: s.currentBalance + totalSettled } : s
+          )
+        );
+      }
       entry = {
         entityType,
         entityId,
@@ -1202,19 +1307,130 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSuppliers(prev => (prev.some(x => x.id === s.id) ? prev : [...prev, s]));
     } else if (item.entityType === 'INTAKE') {
       const i = item.payload as LiveIntake;
-      setIntakes(prev => (prev.some(x => x.id === i.id) ? prev : [i, ...prev]));
+      if (!intakes.some(x => x.id === i.id)) {
+        setIntakes(prev => [i, ...prev]);
+        if (i.paymentStatus === 'DEBT' || i.paymentStatus === 'PARTIAL') {
+          const unpaid = Math.max(0, i.totalAmount - (i.paidAmount || 0));
+          if (unpaid > 0) {
+            setSuppliers(prev =>
+              prev.map(s =>
+                s.name.includes(i.farmName) || i.farmName.includes(s.name)
+                  ? { ...s, currentBalance: s.currentBalance + unpaid }
+                  : s
+              )
+            );
+          }
+        }
+      }
     } else if (item.entityType === 'DISPATCH') {
       const d = item.payload as DispatchOrder;
-      setDispatches(prev => (prev.some(x => x.id === d.id) ? prev : [d, ...prev]));
+      if (!dispatches.some(x => x.id === d.id)) {
+        setDispatches(prev => [d, ...prev]);
+        if ((d.destinationType === 'REP' || d.destinationType === 'DIRECT') && d.paymentType === 'CREDIT') {
+          const custName = d.customerName || d.destinationName;
+          if (custName) {
+            setCustomers(prev =>
+              prev.map(c =>
+                c.name.toLowerCase().includes(custName.toLowerCase()) ||
+                custName.toLowerCase().includes(c.name.toLowerCase())
+                  ? { ...c, currentDebt: c.currentDebt + d.totalAmount }
+                  : c
+              )
+            );
+          }
+        }
+        if (
+          d.destinationType === 'DIRECT' ||
+          (d.destinationType === 'GIFT' && d.sourceCustody !== 'REP')
+        ) {
+          setProducts(prev =>
+            prev.map(p => {
+              const sentKg = d.items
+                .filter(it => it.productId === p.id)
+                .reduce((s, it) => s + it.weightKg, 0);
+              return sentKg > 0
+                ? { ...p, inStockKg: Math.max(0, Number((p.inStockKg - sentKg).toFixed(2))) }
+                : p;
+            })
+          );
+        }
+      }
     } else if (item.entityType === 'POS_SALE') {
       const s = item.payload as POSSale;
-      setPosSales(prev => (prev.some(x => x.id === s.id) ? prev : [s, ...prev]));
+      if (!posSales.some(x => x.id === s.id)) {
+        setPosSales(prev => [s, ...prev]);
+        setBranchStock(prev =>
+          prev.map(bs => {
+            const soldKg = s.items
+              .filter(it => it.productId === bs.productId)
+              .reduce((sum, it) => sum + it.weightKg, 0);
+            return soldKg > 0
+              ? { ...bs, inStockKg: Math.max(0, Number((bs.inStockKg - soldKg).toFixed(2))) }
+              : bs;
+          })
+        );
+        if (s.paymentType === 'DEBT' && s.total > 0) {
+          const custName = (s.customerName || '').trim();
+          setCustomers(prev =>
+            prev.map(c =>
+              (s.customerId && c.id === s.customerId) ||
+              (custName &&
+                (c.name.toLowerCase().includes(custName.toLowerCase()) ||
+                  custName.toLowerCase().includes(c.name.toLowerCase())))
+                ? { ...c, currentDebt: c.currentDebt + s.total }
+                : c
+            )
+          );
+        }
+      }
     } else if (item.entityType === 'RETURN') {
       const r = item.payload as ReturnOrder;
-      setReturns(prev => (prev.some(x => x.id === r.id) ? prev : [r, ...prev]));
+      if (!returns.some(x => x.id === r.id)) {
+        setReturns(prev => [r, ...prev]);
+        const deduction = r.totalCustomerDeduction ?? r.totalLossAmount;
+        if (r.customerName && deduction > 0) {
+          setCustomers(prev =>
+            prev.map(c =>
+              c.name.includes(r.customerName!) || r.customerName!.includes(c.name)
+                ? { ...c, currentDebt: Math.max(0, c.currentDebt - deduction) }
+                : c
+            )
+          );
+        }
+        if (r.sourceType === 'BRANCH') {
+          setBranchStock(prev =>
+            prev.map(bs => {
+              const retKg = r.items
+                .filter(it => it.productId === bs.productId)
+                .reduce((sum, it) => sum + it.weightKg, 0);
+              return retKg > 0
+                ? { ...bs, inStockKg: Math.max(0, Number((bs.inStockKg - retKg).toFixed(2))) }
+                : bs;
+            })
+          );
+        }
+      }
     } else if (item.entityType === 'VOUCHER') {
       const v = item.payload as PaymentVoucher;
-      setVouchers(prev => (prev.some(x => x.id === v.id) ? prev : [v, ...prev]));
+      if (!vouchers.some(x => x.id === v.id)) {
+        setVouchers(prev => [v, ...prev]);
+        const totalSettled = v.amount + (v.discount || 0);
+        if (v.partyType === 'CUSTOMER') {
+          setCustomers(prev =>
+            prev.map(c =>
+              c.id === v.partyId ? { ...c, currentDebt: Math.max(0, c.currentDebt - totalSettled) } : c
+            )
+          );
+        } else {
+          setSuppliers(prev =>
+            prev.map(s =>
+              s.id === v.partyId
+                ? { ...s, currentBalance: Math.max(0, s.currentBalance - totalSettled) }
+                : s
+            )
+          );
+        }
+      }
     } else if (item.entityType === 'EXPENSE') {
       const e = item.payload as ExpenseRecord;
       setExpenses(prev => (prev.some(x => x.id === e.id) ? prev : [e, ...prev]));
@@ -1273,6 +1489,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   };
 
+  const repNames = useMemo(() => {
+    const defaults = [
+      'مەندوب شوان (هێڵی بەختیاری)',
+      'مەندوب هێمن (هێڵی تووی مەلیك)',
+      'مەندوب ئارام (هێڵی سەرچنار و ڕاپەڕین)',
+      'مەندوب کامەران (هێڵی عەربەت و شارەزوور)',
+    ];
+    const set = new Set<string>();
+    // 1. Active REP accounts configured in Settings
+    users
+      .filter(u => u.role === 'REP' && u.isActive !== false && u.name.trim())
+      .forEach(u => set.add(u.name.trim()));
+    // 2. Default fleet lines + any historical names from transfers/dispatches/settlements
+    defaults.forEach(name => set.add(name));
+    custodyTransfers
+      .filter(t => t.holderType === 'REP' && t.holderName.trim())
+      .forEach(t => set.add(t.holderName.trim()));
+    dispatches
+      .filter(d => (d.destinationType === 'REP' || d.sourceCustody === 'REP') && d.repName?.trim())
+      .forEach(d => set.add(d.repName!.trim()));
+    settlements
+      .filter(s => s.accountType === 'REP' && s.accountName.trim())
+      .forEach(s => set.add(s.accountName.trim()));
+    return Array.from(set);
+  }, [users, custodyTransfers, dispatches, settlements]);
+
+  const exportSystemBackup = (): string => {
+    const payload = {
+      version: 'FFC-POS-v4',
+      exportedAt: new Date().toISOString(),
+      data: {
+        products,
+        intakes,
+        yields,
+        customers,
+        suppliers,
+        dispatches,
+        returns,
+        expenses,
+        vouchers,
+        posSales,
+        branchStock,
+        branchDeliveries,
+        branchExpenses,
+        custodyTransfers,
+        settlements,
+        users,
+        factorySettings,
+        trashItems,
+        activityLogs,
+      },
+    };
+    recordActivity('SETTINGS', 'CREATE', 'دابەزاندنی باکئەپی سیستەم', 'هەموو داتاکانی کارگە بە فایلی JSON دابەزێنران');
+    return JSON.stringify(payload, null, 2);
+  };
+
+  const importSystemBackup = (
+    jsonStr: string
+  ): { ok: boolean; error?: string; stats?: string } => {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const d = parsed?.data || parsed;
+      if (!d || typeof d !== 'object' || !Array.isArray(d.products) || !Array.isArray(d.users)) {
+        return { ok: false, error: 'فایلی باکئەپ دروست نییە یان فۆرماتەکەی هەڵەیە!' };
+      }
+
+      setProducts(d.products);
+      if (Array.isArray(d.intakes)) setIntakes(d.intakes);
+      if (Array.isArray(d.yields)) setYields(d.yields);
+      if (Array.isArray(d.customers)) setCustomers(d.customers);
+      if (Array.isArray(d.suppliers)) setSuppliers(d.suppliers);
+      if (Array.isArray(d.dispatches)) setDispatches(d.dispatches);
+      if (Array.isArray(d.returns)) setReturns(d.returns);
+      if (Array.isArray(d.expenses)) setExpenses(d.expenses);
+      if (Array.isArray(d.vouchers)) setVouchers(d.vouchers);
+      if (Array.isArray(d.posSales)) setPosSales(d.posSales);
+      if (Array.isArray(d.branchStock)) setBranchStock(d.branchStock);
+      if (Array.isArray(d.branchDeliveries)) setBranchDeliveries(d.branchDeliveries);
+      if (Array.isArray(d.branchExpenses)) setBranchExpenses(d.branchExpenses);
+      if (Array.isArray(d.custodyTransfers)) setCustodyTransfers(d.custodyTransfers);
+      if (Array.isArray(d.settlements)) setSettlements(d.settlements);
+      if (Array.isArray(d.users)) setUsers(d.users);
+      if (d.factorySettings && typeof d.factorySettings === 'object') {
+        setFactorySettings(prev => ({ ...prev, ...d.factorySettings }));
+      }
+      if (Array.isArray(d.trashItems)) setTrashItems(d.trashItems);
+      if (Array.isArray(d.activityLogs)) setActivityLogs(d.activityLogs);
+
+      recordActivity(
+        'SETTINGS',
+        'RESTORE',
+        'گەڕاندنەوەی باکئەپی سیستەم',
+        `باکئەپ گەڕێندرایەوە (${d.intakes?.length || 0} وەرگرتن، ${d.dispatches?.length || 0} وەسڵی مەندوب، ${d.posSales?.length || 0} POS)`
+      );
+      return {
+        ok: true,
+        stats: `${d.intakes?.length || 0} وەرگرتن • ${d.dispatches?.length || 0} وەسڵی مەندوب • ${d.posSales?.length || 0} فرۆشی POS`,
+      };
+    } catch {
+      return { ok: false, error: 'نەتوانرا فایلەکە بخوێندرێتەوە (JSON هەڵەیە)' };
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -1328,7 +1647,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         emptyTrash,
         activityLogs,
         clearActivityLogs,
+        repNames,
         parseWeightBarcode,
+        exportSystemBackup,
+        importSystemBackup,
       }}
     >
       {children}

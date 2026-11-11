@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Menubar } from './components/layout/Menubar';
-import { TabType } from './components/layout/Sidebar';
+import { TabType } from './types';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { LiveIntakeView } from './components/intake/LiveIntakeView';
 import { SlaughterCuttingView } from './components/production/SlaughterCuttingView';
@@ -77,8 +77,7 @@ function AppContent() {
         {activeTab === 'custody' && hasAccess('custody') && (
           <CustodyView onNavigate={setActiveTab} />
         )}
-        {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
-          hasAccess('rep-sales') && <RepSalesView />}
+        {activeTab === 'rep-sales' && hasAccess('rep-sales') && <RepSalesView />}
         {activeTab === 'gifts' && hasAccess('gifts') && <GiftsView />}
         {activeTab === 'pos' && hasAccess('pos') && <POSView />}
         {activeTab === 'accounting' && hasAccess('accounting') && <AccountingView />}

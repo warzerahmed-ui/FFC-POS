@@ -12,8 +12,7 @@ import {
   X,
   Truck,
 } from 'lucide-react';
-import { TabType } from '../layout/Sidebar';
-import { LiveIntake } from '../../types';
+import { LiveIntake, TabType } from '../../types';
 
 interface SlaughterCuttingViewProps {
   onNavigate: (tab: TabType) => void;

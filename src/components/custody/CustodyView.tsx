@@ -14,14 +14,7 @@ import {
   ArrowRight,
   PackageCheck,
 } from 'lucide-react';
-import { TabType } from '../layout/Sidebar';
-
-const REP_PRESETS = [
-  'مەندوب شوان (هێڵی بەختیاری)',
-  'مەندوب هێمن (هێڵی تووی مەلیك)',
-  'مەندوب ئارام (هێڵی سەرچنار و ڕاپەڕین)',
-  'مەندوب کامەران (هێڵی عەربەت و شارەزوور)',
-];
+import { TabType } from '../../types';
 
 const BRANCH_HOLDER_NAME = 'فرۆشگای تایبەت (POS / شۆرۆم)';
 
@@ -59,13 +52,14 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
     loadToRepCustody,
     addBranchDelivery,
     returnUnsoldToReadyStock,
+    repNames,
   } = useApp();
 
   const [selectedFilterHolder, setSelectedFilterHolder] = useState<string>('ALL');
 
   // Modal 1: Load / Send from Ready Stock onto Rep or Store Custody Account
   const [showLoadModal, setShowLoadModal] = useState(false);
-  const [loadHolderKey, setLoadHolderKey] = useState<string>(REP_PRESETS[0]);
+  const [loadHolderKey, setLoadHolderKey] = useState<string>(repNames[0] || 'BRANCH');
   const [loadReceiptNo, setLoadReceiptNo] = useState('');
   const [loadDate, setLoadDate] = useState(new Date().toISOString().split('T')[0]);
   const [loadTime, setLoadTime] = useState(
@@ -86,12 +80,12 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
 
   // Compute full custody balance per Rep + Dedicated Store (Branch)
   const holderSummaries: HolderSummary[] = useMemo(() => {
-    const repNamesSet = new Set<string>(REP_PRESETS);
+    const repNamesSet = new Set<string>(repNames);
     custodyTransfers
       .filter(t => t.holderType === 'REP')
       .forEach(t => repNamesSet.add(t.holderName));
     dispatches
-      .filter(d => d.destinationType === 'REP' && d.repName)
+      .filter(d => (d.destinationType === 'REP' || d.sourceCustody === 'REP') && d.repName)
       .forEach(d => repNamesSet.add(d.repName!));
 
     const repSummaries: HolderSummary[] = Array.from(repNamesSet).map(repName => {
@@ -109,7 +103,12 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
             );
 
           const soldKg = dispatches
-            .filter(d => d.destinationType === 'REP' && (d.repName || '') === repName)
+            .filter(
+              d =>
+                (d.destinationType === 'REP' ||
+                  (d.destinationType === 'GIFT' && d.sourceCustody === 'REP')) &&
+                (d.repName || '') === repName
+            )
             .reduce(
               (s, d) =>
                 s +
@@ -226,7 +225,7 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
 
   // --- Load Modal Handlers ---
   const handleOpenLoadModal = (defaultHolder?: string) => {
-    const holder = defaultHolder || REP_PRESETS[0];
+    const holder = defaultHolder || repNames[0] || 'BRANCH';
     setLoadHolderKey(holder);
     setLoadReceiptNo(
       holder === 'BRANCH'
@@ -788,7 +787,7 @@ export const CustodyView: React.FC<CustodyViewProps> = ({ onNavigate }) => {
                     className="apple-input w-full px-3.5 py-2.5 font-bold"
                   >
                     <option value="BRANCH">{BRANCH_HOLDER_NAME}</option>
-                    {REP_PRESETS.map(r => (
+                    {repNames.map(r => (
                       <option key={r} value={r}>
                         {r}
                       </option>

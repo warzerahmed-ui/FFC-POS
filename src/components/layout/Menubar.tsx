@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { TabType } from './Sidebar';
+import { TabType } from '../../types';
 import { FactoryLogo } from './FactoryLogo';
 import {
   LayoutDashboard,
@@ -107,7 +107,6 @@ const MENU_GROUPS: MenuGroup[] = [
         description: 'وەسڵی دەستی و گەڕاوەی ٣ ڕۆژی مارکێتەکان',
         badge: 'قۆناغی ٥',
         icon: Send,
-        matchTabs: ['rep-sales', 'dispatch', 'returns'],
       },
       {
         id: 'pos',

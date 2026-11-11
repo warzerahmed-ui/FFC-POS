@@ -10,9 +10,11 @@ import {
   RefreshCw,
   ClipboardList,
   ArrowUpRight,
+  Barcode,
+  Printer,
 } from 'lucide-react';
-import { ProductItem, ReturnOrder } from '../../types';
-import { TabType } from '../layout/Sidebar';
+import { ProductItem, ReturnOrder, TabType } from '../../types';
+import { FactoryLogo } from '../layout/FactoryLogo';
 
 type SubTabType = 'inventory' | 'returns-conversion';
 
@@ -28,6 +30,7 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
     returns,
     convertReturnOrder,
     updateProductPrice,
+    factorySettings,
   } = useApp();
 
   const [subTab, setSubTab] = useState<SubTabType>('inventory');
@@ -41,6 +44,11 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [editPricePerKg, setEditPricePerKg] = useState<number | ''>('');
   const [editCostPerKg, setEditCostPerKg] = useState<number | ''>('');
+
+  // Barcode Sticker Label Modal States
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [labelProductId, setLabelProductId] = useState(products[0]?.id || '');
+  const [labelWeightKg, setLabelWeightKg] = useState<number | ''>(1.5);
 
   // Derived Metrics
   const pendingReturns = useMemo(
@@ -166,6 +174,15 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowBarcodeModal(true)}
+            className="px-4 py-2.5 bg-[#1D1D1F] hover:bg-black text-white font-bold text-xs rounded-full flex items-center gap-1.5 transition-all"
+          >
+            <Barcode className="w-4 h-4" />
+            چاپی ستیکەری بارکۆد
+          </button>
 
           <button
             type="button"
@@ -665,6 +682,127 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
           </div>
         </div>
       )}
+
+      {/* Barcode Sticker Label Modal */}
+      {showBarcodeModal && (() => {
+        const prod = products.find(p => p.id === labelProductId) || products[0];
+        const wt = Number(labelWeightKg) || 0;
+        const gramsStr = String(Math.round(wt * 1000)).padStart(5, '0');
+        const fullBarcode = prod ? `${prod.barcodePrefix}${gramsStr}` : '210010101500';
+        const priceTotal = prod ? Math.round(wt * prod.pricePerKg) : 0;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white rounded-[28px] w-full max-w-md overflow-hidden shadow-2xl border border-black/[0.08] apple-sheet">
+              <div className="p-5 bg-[#FBFBFD] border-b border-black/[0.06] flex justify-between items-center no-print">
+                <h3 className="font-extrabold text-[#1D1D1F] text-sm flex items-center gap-2">
+                  <Barcode className="w-4 h-4 text-[#0071E3]" />
+                  چاپی ستیکەری بارکۆدی تەرازوو (80mm / Label)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowBarcodeModal(false)}
+                  className="w-7 h-7 rounded-full bg-[#F5F5F7] text-[#86868B] flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-3 no-print">
+                  <div>
+                    <label className="block text-[#515154] font-semibold mb-1">جۆری بەرهەم:</label>
+                    <select
+                      value={labelProductId}
+                      onChange={e => setLabelProductId(e.target.value)}
+                      className="apple-input w-full px-3 py-2 font-semibold"
+                    >
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nameKu}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[#515154] font-semibold mb-1">کێش (کگم):</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.05"
+                      value={labelWeightKg}
+                      onChange={e => setLabelWeightKg(e.target.value ? Number(e.target.value) : '')}
+                      className="apple-input w-full px-3 py-2 font-black tabular-nums"
+                    />
+                  </div>
+                </div>
+
+                {/* Printable Sticker Preview */}
+                {prod && (
+                  <div className="p-4 rounded-2xl border-2 border-dashed border-black/20 bg-white text-center space-y-2">
+                    <div className="flex items-center justify-center gap-2 pb-1.5 border-b border-black/10">
+                      <FactoryLogo size="xs" />
+                      <span className="font-extrabold text-[#1D1D1F] text-xs">
+                        {factorySettings.factoryName}
+                      </span>
+                    </div>
+                    <div className="font-black text-sm text-[#1D1D1F]">{prod.nameKu}</div>
+                    <div className="flex justify-center items-center gap-4 text-xs font-bold tabular-nums">
+                      <span className="text-[#0071E3]">کێش: {wt.toFixed(2)} کگم</span>
+                      <span className="text-[#248A3D]">نرخ: {priceTotal.toLocaleString()} د.ع</span>
+                    </div>
+                    <svg width={220} height={46} className="mx-auto select-none">
+                      <rect width={220} height={46} fill="#FFFFFF" />
+                      {Array.from(fullBarcode).map((ch, i) => {
+                        const code = ch.charCodeAt(0);
+                        const x = 14 + i * 16;
+                        return (
+                          <g key={i}>
+                            <rect x={x} y={3} width={(code % 3) + 1.5} height={28} fill="#1D1D1F" />
+                            <rect x={x + 6} y={3} width={((code >> 1) % 2) + 1} height={28} fill="#1D1D1F" />
+                          </g>
+                        );
+                      })}
+                      <text
+                        x={110}
+                        y={43}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fontFamily="monospace"
+                        fill="#1D1D1F"
+                        letterSpacing="2"
+                      >
+                        {fullBarcode}
+                      </text>
+                    </svg>
+                    <div className="text-[10px] text-[#86868B]">
+                      بەرواری بەرهەمهێنان: {new Date().toISOString().slice(0, 10)} • ماوەی فرێش: {factorySettings.returnWindowDays} ڕۆژ
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2 no-print">
+                  <button
+                    type="button"
+                    onClick={() => setShowBarcodeModal(false)}
+                    className="w-1/2 py-2.5 rounded-full bg-[#F5F5F7] text-[#515154] font-semibold"
+                  >
+                    داخستن
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="w-1/2 py-2.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold flex items-center justify-center gap-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    چاپکردنی ستیکەر
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

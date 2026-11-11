@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp, ALL_SYSTEM_SECTIONS, getDefaultTabsForRole } from '../../context/AppContext';
 import {
   Settings,
@@ -25,6 +25,8 @@ import {
   UserX,
   Clock,
   Upload,
+  Download,
+  Database,
   Image as ImageIcon,
 } from 'lucide-react';
 import { FactoryLogo } from '../layout/FactoryLogo';
@@ -84,6 +86,8 @@ export const SettingsView: React.FC = () => {
     emptyTrash,
     activityLogs,
     clearActivityLogs,
+    exportSystemBackup,
+    importSystemBackup,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('FACTORY_INFO');
@@ -98,6 +102,10 @@ export const SettingsView: React.FC = () => {
   // 1. FACTORY INFO FORM STATE
   // ==========================================
   const [factoryForm, setFactoryForm] = useState({ ...factorySettings });
+
+  useEffect(() => {
+    setFactoryForm({ ...factorySettings });
+  }, [factorySettings]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -146,6 +154,36 @@ export const SettingsView: React.FC = () => {
     setFactoryForm(f => ({ ...f, logoUrl: undefined }));
     updateFactorySettings({ logoUrl: undefined });
     showToast('لۆگۆی تایبەت لابرا', 'success');
+  };
+
+  const handleDownloadBackup = () => {
+    const json = exportSystemBackup();
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `${factorySettings.shortCode || 'FFC-POS'}-Backup-${dateStamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('فایلی باکئەپی تەواوی سیستەم دابەزێنرا', 'success');
+  };
+
+  const handleRestoreBackupFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || '');
+      const res = importSystemBackup(content);
+      if (!res.ok) {
+        showToast(res.error || 'هەڵە لە گەڕاندنەوەی باکئەپ', 'warn');
+        return;
+      }
+      showToast(`باکئەپ بە سەرکەوتوویی گەڕێندرایەوە (${res.stats})`, 'success');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleSaveFactoryInfo = (e: React.FormEvent) => {
@@ -785,6 +823,45 @@ export const SettingsView: React.FC = () => {
                 <div className="p-2.5 rounded-xl bg-white border border-dashed border-slate-300 text-center text-[11px] font-semibold text-[#515154]">
                   {factoryForm.receiptFooter}
                 </div>
+              </div>
+            </div>
+
+            {/* System Backup & Restore Card */}
+            <div className="apple-card p-5 space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-black/[0.06]">
+                <div className="text-xs font-extrabold text-[#1D1D1F] flex items-center gap-1.5">
+                  <Database className="w-4 h-4 text-[#34C759]" />
+                  باکئەپ و پاراستنی داتاکان (Backup)
+                </div>
+                <span className="text-[10px] font-bold text-[#248A3D] bg-[#34C759]/10 px-2 py-0.5 rounded-full">
+                  JSON
+                </span>
+              </div>
+
+              <p className="text-[11px] text-[#86868B] leading-relaxed">
+                بۆ پاراستنی هەموو وەسڵەکان، قەرزەکان و کۆگا، یان گواستنەوەی داتاکان بۆ کۆمپیوتەرێکی تر، فایلی باکئەپ دابەزێنە یان بیگەڕێنەوە.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadBackup}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#34C759] hover:bg-[#2DB84D] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  دابەزاندنی باکئەپی تەواو
+                </button>
+
+                <label className="w-full py-2.5 px-4 rounded-xl bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] font-bold text-xs flex items-center justify-center gap-2 border border-black/[0.06] cursor-pointer transition-all">
+                  <Upload className="w-3.5 h-3.5 text-[#0071E3]" />
+                  <span>گەڕاندنەوەی باکئەپ (Import)</span>
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={handleRestoreBackupFile}
+                    className="hidden"
+                  />
+                </label>
               </div>
             </div>
           </div>
