@@ -137,14 +137,17 @@ export const AccountingView: React.FC = () => {
         (d.customerName && (d.customerName.includes(customer.name) || customer.name.includes(d.customerName))) ||
         (d.destinationName && (d.destinationName.includes(customer.name) || customer.name.includes(d.destinationName)));
 
-      if (isMatch && d.destinationType === 'REP') {
+      if (isMatch && (d.destinationType === 'REP' || d.destinationType === 'DIRECT')) {
         return [{
           id: d.id,
           date: d.date,
           time: d.time || '08:30 ص',
           refNo: d.manualReceiptNo,
           type: 'PURCHASE' as const,
-          description: `فرۆشی مەندوب (${d.repName || 'مەندوب'} - ${d.totalWeightKg} کگم)`,
+          description:
+            d.destinationType === 'DIRECT'
+              ? `فرۆشتن لە ئامادە بۆ فرۆشتن (${d.totalWeightKg} کگم)`
+              : `فرۆشی مەندوب (${d.repName || 'مەندوب'} - ${d.totalWeightKg} کگم)`,
           debit: d.paymentType === 'CASH' ? 0 : d.totalAmount, // قەرز زیاد دەکات
           credit: 0,
           discount: 0,

@@ -369,8 +369,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const dispatch: DispatchOrder = { ...newDispatch, id };
     setDispatches(prev => [dispatch, ...prev]);
 
-    // If it's a rep sale on credit to a customer, update the customer's currentDebt
-    if (dispatch.destinationType === 'REP' && dispatch.paymentType === 'CREDIT') {
+    // If it's a rep or direct sale on credit to a customer, update the customer's currentDebt
+    if ((dispatch.destinationType === 'REP' || dispatch.destinationType === 'DIRECT') && dispatch.paymentType === 'CREDIT') {
       const custName = dispatch.customerName || dispatch.destinationName;
       if (custName) {
         setCustomers(prev => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Truck,
+  PackageCheck,
   RotateCcw,
   Users,
   ArrowUpRight,
@@ -21,6 +22,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) => {
   const {
     intakes,
+    products,
     dispatches,
     returns,
     customers,
@@ -32,6 +34,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
   } = useApp();
 
   const totalLiveIntakeKg = intakes.reduce((sum, i) => sum + i.netWeightKg, 0);
+  const totalReadyStockKg = products.reduce((sum, p) => sum + p.inStockKg, 0);
   const totalReturnsKg = returns.reduce((sum, r) => sum + r.totalWeightKg, 0);
   const totalReturnsLoss = returns.reduce((sum, r) => sum + r.totalLossAmount, 0);
   const totalCustomerDebt = customers.reduce((sum, c) => sum + c.currentDebt, 0);
@@ -87,6 +90,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
             >
               <Truck className="w-3.5 h-3.5" />
               + باری کێڵگە
+            </button>
+          )}
+
+          {hasAccess('ready-for-sale') && (
+            <button
+              onClick={() => setActiveTab('ready-for-sale')}
+              className="px-4 py-2.5 bg-[#34C759]/15 hover:bg-[#34C759]/25 text-[#1B7A34] font-semibold text-xs rounded-full flex items-center gap-1.5 transition-all"
+            >
+              <PackageCheck className="w-3.5 h-3.5 text-[#248A3D]" />
+              ئامادە بۆ فرۆشتن
             </button>
           )}
 
@@ -226,6 +239,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
 
       {/* Role-Specific Channel Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {hasAccess('ready-for-sale') && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('ready-for-sale')}
+            className="apple-card apple-card-hover p-5 text-right flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-1 rounded-full">
+                  ئامادە بۆ فرۆشتن
+                </span>
+                <PackageCheck className="w-4 h-4 text-[#0071E3]" />
+              </div>
+              <h3 className="text-sm font-extrabold text-[#1D1D1F]">کۆگای بەرهەمە ئامادەکان</h3>
+              <p className="text-xs text-[#86868B] mt-1 leading-relaxed">
+                ئامادەکردنی باری کێڵگە و فرۆشتنی ڕاستەوخۆی بەرهەمە پاککراوەکان لە کارگەوە.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-black/[0.05] flex items-center justify-between text-xs w-full">
+              <span className="text-[#86868B]">کۆی بەرهەمی ئامادە:</span>
+              <span className="font-bold text-[#1D1D1F] tabular-nums">{totalReadyStockKg.toLocaleString()} کگم</span>
+            </div>
+          </button>
+        )}
+
         {hasAccess('rep-sales') && (
           <button
             type="button"

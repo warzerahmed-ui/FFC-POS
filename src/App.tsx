@@ -4,6 +4,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Sidebar, TabType } from './components/layout/Sidebar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { LiveIntakeView } from './components/intake/LiveIntakeView';
+import { ReadyForSaleView } from './components/ready/ReadyForSaleView';
 import { RepSalesView } from './components/reps/RepSalesView';
 import { GiftsView } from './components/gifts/GiftsView';
 import { POSView } from './components/pos/POSView';
@@ -48,6 +49,7 @@ function AppContent() {
         <main className="flex-1 p-4 md:p-6 lg:p-7 max-w-[1440px] mx-auto w-full overflow-x-hidden">
           {activeTab === 'dashboard' && <DashboardView setActiveTab={setActiveTab} />}
           {activeTab === 'intake' && hasAccess('intake') && <LiveIntakeView />}
+          {activeTab === 'ready-for-sale' && hasAccess('ready-for-sale') && <ReadyForSaleView />}
           {(activeTab === 'rep-sales' || activeTab === 'dispatch' || activeTab === 'returns') &&
             hasAccess('rep-sales') && <RepSalesView />}
           {activeTab === 'gifts' && hasAccess('gifts') && <GiftsView />}

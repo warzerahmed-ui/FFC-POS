@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import {
   LayoutDashboard,
   Truck,
+  PackageCheck,
   Send,
   Gift,
   ShoppingBag,
@@ -15,6 +16,7 @@ import {
 export type TabType =
   | 'dashboard'
   | 'intake'
+  | 'ready-for-sale'
   | 'rep-sales'
   | 'gifts'
   | 'returns'
@@ -41,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { id: 'dashboard' as TabType, label: 'داشبۆردی سەرەکی', icon: LayoutDashboard, badge: null },
     { id: 'intake' as TabType, label: 'وەرگرتنی مریشک (کێڵگە)', icon: Truck, badge: 'وەسڵ' },
+    { id: 'ready-for-sale' as TabType, label: 'ئامادە بۆ فرۆشتن', icon: PackageCheck, badge: 'کۆگا' },
     { id: 'rep-sales' as TabType, label: 'فرۆشتنی مەندوب و گەڕاوە', icon: Send, badge: 'مارکێت' },
     { id: 'gifts' as TabType, label: 'دیاری و هەدیە', icon: Gift, badge: 'بەلاش' },
     { id: 'pos' as TabType, label: 'فرۆشگای تایبەت (POS)', icon: ShoppingBag, badge: 'بارکۆد' },

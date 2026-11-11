@@ -73,7 +73,7 @@ export interface YieldRecord {
   notes?: string;
 }
 
-export type DispatchDestination = 'REP' | 'BRANCH' | 'GIFT' | 'RETURN';
+export type DispatchDestination = 'REP' | 'DIRECT' | 'BRANCH' | 'GIFT' | 'RETURN';
 
 export interface DispatchItem {
   productId: string;
