@@ -99,7 +99,7 @@ interface AppContextType {
   // Authentication & Users
   currentUser: User;
   users: User[];
-  login: (phone: string, pass: string) => boolean;
+  login: (phone: string, pass: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   hasAccess: (tab: string) => boolean;
   isAuthenticated: boolean;
@@ -166,6 +166,9 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const TOKEN_KEY = 'ffc_session_token_v1';
+const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'fresh_chicken_products_v4',
@@ -315,7 +318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    () => localStorage.getItem('fresh_chicken_auth_v4') === '1'
+    () => localStorage.getItem('fresh_chicken_auth_v4') === '1' && !!localStorage.getItem(TOKEN_KEY)
   );
   useEffect(() => {
     localStorage.setItem('fresh_chicken_auth_v4', isAuthenticated ? '1' : '0');
@@ -437,9 +440,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCloudSyncStatus('SYNCING');
       const res = await fetch('/api/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ state: snapshot }),
       });
+      if (res.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setIsAuthenticated(false);
+        return;
+      }
       if (!res.ok) {
         setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
         return;
@@ -460,7 +468,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const pullStateFromD1 = useCallback(
     async (initializeIfEmpty = false) => {
       try {
-        const res = await fetch('/api/sync', { cache: 'no-store' });
+        const res = await fetch('/api/sync', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          setIsAuthenticated(false);
+          return;
+        }
         if (!res.ok) {
           setCloudSyncStatus(res.status === 503 || res.status === 404 ? 'LOCAL_ONLY' : 'ERROR');
           return;
@@ -496,6 +512,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initial D1 hydration + 20s background pull from other devices
   useEffect(() => {
+    if (!isAuthenticated) {
+      isHydratedFromCloudRef.current = false;
+      lastServerUpdatedAtRef.current = null;
+      return;
+    }
     let active = true;
     (async () => {
       await pullStateFromD1(true);
@@ -514,7 +535,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active = false;
       window.clearInterval(pollInterval);
     };
-  }, [pullStateFromD1]);
+  }, [pullStateFromD1, isAuthenticated]);
 
   // Debounced auto-save to Cloudflare D1 whenever local state changes
   const snapshotObj = useMemo(() => buildSnapshot(), [buildSnapshot]);
@@ -584,43 +605,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return getDefaultTabsForRole(currentUser.role).includes(normalizedTab);
   };
 
-  const login = (phone: string, pass: string): boolean => {
-    const cleanId = phone.trim().toLowerCase();
-    const cleanPass = pass.trim();
-
-    // Check hidden Super Admin: 07701441068 / 441068
-    if (cleanId === '07701441068' && cleanPass === '441068') {
-      const superAdmin = users.find(u => u.phone === '07701441068') || INITIAL_USERS[0];
-      setCurrentUser(superAdmin);
-      setIsAuthenticated(true);
-      recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', 'چوونەژوورەوەی بەڕێوەبەر', undefined, superAdmin);
-      return true;
-    }
-
-    const aliasRoleMap: Record<string, string> = {
-      admin: 'ADMIN',
-      accountant: 'ACCOUNTANT',
-      rep: 'REP',
-      cashier: 'CASHIER',
-    };
-
-    const found = users.find(u => {
-      if (u.isSuperAdmin || u.isActive === false) return false;
-      const matchesIdentifier = u.phone === cleanId || (aliasRoleMap[cleanId] && u.role === aliasRoleMap[cleanId]);
-      return matchesIdentifier && (u.password === cleanPass || !u.password);
-    });
-
-    if (found) {
+  const login = async (phone: string, pass: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password: pass }),
+      });
+      if (res.status === 429) {
+        return { ok: false, error: 'هەوڵی زۆر درا، تکایە دوای چەند خولەکێک دووبارە هەوڵبدەرەوە' };
+      }
+      if (res.status === 503) {
+        return { ok: false, error: 'سێرڤەر ڕێکنەخراوە، پەیوەندی بە بەڕێوەبەرەوە بکە' };
+      }
+      if (!res.ok) {
+        return { ok: false, error: 'ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە' };
+      }
+      const data = (await res.json()) as { ok?: boolean; token?: string; user?: User };
+      if (!data.ok || !data.token || !data.user) {
+        return { ok: false, error: 'ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە' };
+      }
+      const serverUser = data.user;
+      localStorage.setItem(TOKEN_KEY, data.token);
+      const found = users.find(u => u.id === serverUser.id) || serverUser;
       setCurrentUser(found);
       setIsAuthenticated(true);
-      recordActivity('AUTH', 'LOGIN', 'چوونەژوورەوە بۆ سیستەم', `ئەکاونتی ${found.name} (${found.roleTitleKu}) چووە ژوورەوە`, undefined, found);
-      return true;
+      recordActivity(
+        'AUTH',
+        'LOGIN',
+        'چوونەژوورەوە بۆ سیستەم',
+        found.isSuperAdmin ? 'چوونەژوورەوەی بەڕێوەبەر' : `ئەکاونتی ${found.name} (${found.roleTitleKu}) چووە ژوورەوە`,
+        undefined,
+        found
+      );
+      return { ok: true };
+    } catch {
+      return { ok: false, error: 'پەیوەندی بە سێرڤەرەوە نییە، ئینتەرنێتەکەت بپشکنە' };
     }
-    return false;
   };
 
   const logout = () => {
     recordActivity('AUTH', 'LOGOUT', 'چوونەدەرەوە لە سیستەم', 'بەکارهێنەر لە سیستەم چووە دەرەوە');
+    localStorage.removeItem(TOKEN_KEY);
     setIsAuthenticated(false);
   };
 

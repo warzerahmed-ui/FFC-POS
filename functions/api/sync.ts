@@ -1,16 +1,10 @@
-interface D1PreparedStatementLike {
-  bind: (...values: unknown[]) => D1PreparedStatementLike;
-  all: <T = Record<string, unknown>>() => Promise<{ results: T[] }>;
-}
-
-interface D1DatabaseLike {
-  prepare: (query: string) => D1PreparedStatementLike;
-  batch: (statements: D1PreparedStatementLike[]) => Promise<unknown[]>;
-}
-
-interface Env {
-  DB?: D1DatabaseLike;
-}
+import {
+  D1PreparedStatementLike,
+  Env,
+  hashPassword,
+  jsonResponse,
+  requireSession,
+} from '../_lib/auth';
 
 const ALLOWED_KEYS = new Set([
   'products',
@@ -34,12 +28,21 @@ const ALLOWED_KEYS = new Set([
   'activityLogs',
 ]);
 
-const CORS_HEADERS = {
-  'Content-Type': 'application/json; charset=utf-8',
-  'Cache-Control': 'no-store',
-};
+// Only these roles may change accounts / factory settings.
+const ADMIN_ONLY_KEYS = new Set(['users', 'factorySettings']);
+const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'ADMIN']);
+const MAX_BODY_CHARS = 4_000_000;
 
-const ensureTable = async (db: D1DatabaseLike) => {
+interface UserRecord {
+  id?: string;
+  role?: string;
+  isSuperAdmin?: boolean;
+  password?: unknown;
+  hasPassword?: boolean;
+  [k: string]: unknown;
+}
+
+const ensureTable = async (db: NonNullable<Env['DB']>) => {
   await db.batch([
     db.prepare(
       `CREATE TABLE IF NOT EXISTS app_state (
@@ -51,14 +54,15 @@ const ensureTable = async (db: D1DatabaseLike) => {
   ]);
 };
 
-export const onRequestGet = async (context: { env: Env }) => {
-  const db = context.env.DB;
-  if (!db) {
-    return new Response(JSON.stringify({ ok: false, error: 'D1 binding missing' }), {
-      status: 503,
-      headers: CORS_HEADERS,
-    });
-  }
+const isSuper = (u: UserRecord) => u.isSuperAdmin === true || u.role === 'SUPER_ADMIN';
+
+export const onRequestGet = async (context: { request: Request; env: Env }) => {
+  const { request, env } = context;
+  const auth = await requireSession(request, env);
+  if ('error' in auth) return auth.error;
+
+  const db = env.DB;
+  if (!db) return jsonResponse({ ok: false, error: 'D1 binding missing' }, 503);
 
   try {
     await ensureTable(db);
@@ -72,7 +76,15 @@ export const onRequestGet = async (context: { env: Env }) => {
     for (const row of results || []) {
       if (!ALLOWED_KEYS.has(row.state_key)) continue;
       try {
-        state[row.state_key] = JSON.parse(row.payload);
+        let value: unknown = JSON.parse(row.payload);
+        if (row.state_key === 'users' && Array.isArray(value)) {
+          // Never send password hashes to the browser.
+          value = (value as UserRecord[]).map(u => {
+            const { password, ...rest } = u;
+            return { ...rest, hasPassword: typeof password === 'string' && password.length > 0 };
+          });
+        }
+        state[row.state_key] = value;
         if (row.updated_at && row.updated_at > latestUpdatedAt) {
           latestUpdatedAt = row.updated_at;
         }
@@ -81,50 +93,90 @@ export const onRequestGet = async (context: { env: Env }) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        empty: Object.keys(state).length === 0,
-        serverUpdatedAt: latestUpdatedAt || null,
-        state,
-      }),
-      { status: 200, headers: CORS_HEADERS }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: err instanceof Error ? err.message : 'Failed to read D1 state',
-      }),
-      { status: 500, headers: CORS_HEADERS }
-    );
+    return jsonResponse({
+      ok: true,
+      empty: Object.keys(state).length === 0,
+      serverUpdatedAt: latestUpdatedAt || null,
+      state,
+    });
+  } catch {
+    return jsonResponse({ ok: false, error: 'Failed to read state' }, 500);
   }
 };
 
 export const onRequestPost = async (context: { request: Request; env: Env }) => {
-  const db = context.env.DB;
-  if (!db) {
-    return new Response(JSON.stringify({ ok: false, error: 'D1 binding missing' }), {
-      status: 503,
-      headers: CORS_HEADERS,
-    });
-  }
+  const { request, env } = context;
+  const auth = await requireSession(request, env);
+  if ('error' in auth) return auth.error;
+  const role = auth.session.role;
+  const isAdmin = ADMIN_ROLES.has(role);
+
+  const db = env.DB;
+  if (!db) return jsonResponse({ ok: false, error: 'D1 binding missing' }, 503);
 
   try {
     await ensureTable(db);
-    const body = (await context.request.json()) as { state?: Record<string, unknown> };
+
+    const text = await request.text();
+    if (text.length > MAX_BODY_CHARS) {
+      return jsonResponse({ ok: false, error: 'Payload too large' }, 413);
+    }
+    let body: { state?: Record<string, unknown> };
+    try {
+      body = JSON.parse(text);
+    } catch {
+      return jsonResponse({ ok: false, error: 'Invalid payload' }, 400);
+    }
     const incoming = body?.state;
-    if (!incoming || typeof incoming !== 'object') {
-      return new Response(JSON.stringify({ ok: false, error: 'Invalid payload' }), {
-        status: 400,
-        headers: CORS_HEADERS,
-      });
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return jsonResponse({ ok: false, error: 'Invalid payload' }, 400);
     }
 
     const statements: D1PreparedStatementLike[] = [];
-    for (const [key, value] of Object.entries(incoming)) {
-      if (!ALLOWED_KEYS.has(key) || value === undefined) continue;
-      const serialized = JSON.stringify(value);
+    for (const [key, rawValue] of Object.entries(incoming)) {
+      if (!ALLOWED_KEYS.has(key) || rawValue === undefined) continue;
+      if (ADMIN_ONLY_KEYS.has(key) && !isAdmin) continue;
+
+      let value: unknown = rawValue;
+
+      if (key === 'users') {
+        if (!Array.isArray(rawValue)) continue;
+        const existingRows = await db
+          .prepare("SELECT payload FROM app_state WHERE state_key = 'users'")
+          .all<{ payload: string }>();
+        let existing: UserRecord[] = [];
+        try {
+          const parsed = JSON.parse(existingRows.results?.[0]?.payload || '[]');
+          if (Array.isArray(parsed)) existing = parsed as UserRecord[];
+        } catch {
+          existing = [];
+        }
+        const existingById = new Map(existing.filter(u => u && u.id).map(u => [u.id as string, u]));
+
+        const next: UserRecord[] = [];
+        for (const raw of rawValue as UserRecord[]) {
+          if (!raw || typeof raw !== 'object' || !raw.id) continue;
+          const prev = existingById.get(raw.id);
+          // Only the Super Admin can create/modify Super Admin-level accounts.
+          if (role !== 'SUPER_ADMIN') {
+            if (prev && isSuper(prev)) continue; // re-added below untouched
+            if (isSuper(raw)) continue;
+          }
+          const { password, hasPassword: _hp, ...rest } = raw;
+          void _hp;
+          const plain = typeof password === 'string' ? password.trim() : '';
+          let stored: unknown = prev?.password;
+          if (plain) stored = await hashPassword(plain);
+          next.push(stored ? { ...rest, password: stored } : { ...rest });
+        }
+        if (role !== 'SUPER_ADMIN') {
+          for (const prev of existing) {
+            if (prev && isSuper(prev)) next.push(prev);
+          }
+        }
+        value = next;
+      }
+
       statements.push(
         db
           .prepare(
@@ -134,7 +186,7 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
                payload = excluded.payload,
                updated_at = CURRENT_TIMESTAMP`
           )
-          .bind(key, serialized)
+          .bind(key, JSON.stringify(value))
       );
     }
 
@@ -142,21 +194,12 @@ export const onRequestPost = async (context: { request: Request; env: Env }) => 
       await db.batch(statements);
     }
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        savedKeys: statements.length,
-        serverUpdatedAt: new Date().toISOString(),
-      }),
-      { status: 200, headers: CORS_HEADERS }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: err instanceof Error ? err.message : 'Failed to write D1 state',
-      }),
-      { status: 500, headers: CORS_HEADERS }
-    );
+    return jsonResponse({
+      ok: true,
+      savedKeys: statements.length,
+      serverUpdatedAt: new Date().toISOString(),
+    });
+  } catch {
+    return jsonResponse({ ok: false, error: 'Failed to write state' }, 500);
   }
 };

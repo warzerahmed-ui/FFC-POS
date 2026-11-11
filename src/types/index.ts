@@ -20,6 +20,7 @@ export interface User {
   name: string;
   phone: string;
   password?: string;
+  hasPassword?: boolean;
   role: UserRole;
   roleTitleKu: string;
   isSuperAdmin?: boolean;

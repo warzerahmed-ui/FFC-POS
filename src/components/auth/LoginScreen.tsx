@@ -10,12 +10,17 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
-    if (!login(phone, password)) {
-      setError('ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە');
+    setLoading(true);
+    const result = await login(phone, password);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error || 'ژمارەی مۆبایل یان وشەی نهێنی هەڵەیە');
       setPassword('');
     }
   };
@@ -83,9 +88,10 @@ export const LoginScreen: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-3.5 rounded-2xl bg-[#0071E3] hover:bg-[#0077ED] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm shadow-[#0071E3]/30 transition-all active:scale-[0.985]"
+            disabled={loading}
+            className="w-full py-3.5 rounded-2xl bg-[#0071E3] hover:bg-[#0077ED] disabled:opacity-60 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm shadow-[#0071E3]/30 transition-all active:scale-[0.985]"
           >
-            چوونەژوورەوە
+            {loading ? 'تکایە چاوەڕێ بە...' : 'چوونەژوورەوە'}
             <ArrowLeft className="w-4 h-4" />
           </button>
         </form>
