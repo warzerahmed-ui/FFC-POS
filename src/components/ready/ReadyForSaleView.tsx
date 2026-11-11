@@ -12,7 +12,6 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { ProductItem, ReturnOrder } from '../../types';
-import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
 import { TabType } from '../layout/Sidebar';
 
 type SubTabType = 'inventory' | 'returns-conversion';
@@ -139,10 +138,6 @@ export const ReadyForSaleView: React.FC<ReadyForSaleViewProps> = ({ onNavigate }
 
   return (
     <div className="space-y-6">
-      {onNavigate && (
-        <FactoryPipelineStepper activeStage="ready-for-sale" onNavigate={onNavigate} />
-      )}
-
       {/* Header */}
       <div className="apple-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">

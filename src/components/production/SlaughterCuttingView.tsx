@@ -12,7 +12,6 @@ import {
   X,
   Truck,
 } from 'lucide-react';
-import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
 import { TabType } from '../layout/Sidebar';
 import { LiveIntake } from '../../types';
 
@@ -129,9 +128,6 @@ export const SlaughterCuttingView: React.FC<SlaughterCuttingViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* Connected 3-Stage Pipeline Stepper */}
-      <FactoryPipelineStepper activeStage="production" onNavigate={onNavigate} />
-
       {/* Header */}
       <div className="apple-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">

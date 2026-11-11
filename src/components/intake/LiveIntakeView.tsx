@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Truck, Plus, FileText, Search, X, Check, Scissors, ArrowLeft } from 'lucide-react';
-import { FactoryPipelineStepper } from '../layout/FactoryPipelineStepper';
 import { TabType } from '../layout/Sidebar';
 
 interface LiveIntakeViewProps {
@@ -124,10 +123,6 @@ export const LiveIntakeView: React.FC<LiveIntakeViewProps> = ({
 
   return (
     <div className="space-y-5">
-      {onNavigate && (
-        <FactoryPipelineStepper activeStage="intake" onNavigate={onNavigate} />
-      )}
-
       {/* Header */}
       <div className="apple-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
