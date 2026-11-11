@@ -11,13 +11,14 @@ import {
   Heart,
   Scale,
 } from 'lucide-react';
-import { DispatchItem } from '../../types';
+import { DispatchItem, DispatchOrder } from '../../types';
 
 export const GiftsView: React.FC = () => {
   const { dispatches, products, addDispatch } = useApp();
 
   const [showModal, setShowModal] = useState(false);
-  const [selectedReceiptForPrint, setSelectedReceiptForPrint] = useState<any | null>(null);
+  const [selectedReceiptForPrint, setSelectedReceiptForPrint] = useState<DispatchOrder | null>(null);
+  const [showFactoryCostOnPrint, setShowFactoryCostOnPrint] = useState(false);
 
   // Form States
   const [manualReceiptNo, setManualReceiptNo] = useState('');
@@ -27,19 +28,32 @@ export const GiftsView: React.FC = () => {
   );
   const [repName, setRepName] = useState('مەندوب شوان');
   const [recipientName, setRecipientName] = useState('');
-  const [notes, setNotes] = useState('دیاری و بەخشین (٠ دینار) لەسەر تێچووی کۆگا');
+  const [notes, setNotes] = useState('دیاری و بەخشین — لەسەر خەڵک فری (٠ دینار) و تێچوو لەسەر کارگە');
 
   // Line items
-  const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || '');
+  const defaultProduct = products[0];
+  const [selectedProductId, setSelectedProductId] = useState(defaultProduct?.id || '');
   const [itemWeight, setItemWeight] = useState<number | ''>('');
+  const [itemFactoryCostPerKg, setItemFactoryCostPerKg] = useState<number | ''>(
+    defaultProduct?.costPerKg ?? 2750
+  );
   const [itemsList, setItemsList] = useState<DispatchItem[]>([]);
 
+  const handleProductChange = (prodId: string) => {
+    setSelectedProductId(prodId);
+    const prod = products.find(p => p.id === prodId);
+    setItemFactoryCostPerKg(prod ? prod.costPerKg : 2750);
+  };
+
   const handleOpenModal = () => {
+    const firstProd = products[0];
     setManualReceiptNo(`G-${Math.floor(100 + Math.random() * 90)}`);
+    setSelectedProductId(firstProd?.id || '');
+    setItemFactoryCostPerKg(firstProd?.costPerKg ?? 2750);
     setItemsList([]);
     setItemWeight('');
     setRecipientName('');
-    setNotes('دیاری و بەخشین (٠ دینار) لەسەر تێچووی کۆگا');
+    setNotes('دیاری و بەخشین — لەسەر خەڵک فری (٠ دینار) و تێچوو لەسەر کارگە');
     setShowModal(true);
   };
 
@@ -51,14 +65,21 @@ export const GiftsView: React.FC = () => {
     }
 
     const weight = Number(itemWeight);
+    const costPerKg =
+      itemFactoryCostPerKg !== '' && Number(itemFactoryCostPerKg) >= 0
+        ? Number(itemFactoryCostPerKg)
+        : prod.costPerKg;
+    const factoryCostAmount = Math.round(weight * costPerKg);
 
     const newItem: DispatchItem = {
       productId: prod.id,
       productName: prod.nameKu,
       barcode: `${prod.barcodePrefix}${String(Math.round(weight * 1000)).padStart(5, '0')}`,
       weightKg: weight,
-      pricePerKg: 0, // Always 0 IQD for gifts!
+      pricePerKg: 0, // Always 0 IQD (Free) on recipient!
       totalAmount: 0,
+      factoryCostPerKg: costPerKg,
+      factoryCostAmount,
     };
 
     setItemsList([...itemsList, newItem]);
@@ -69,14 +90,20 @@ export const GiftsView: React.FC = () => {
     setItemsList(itemsList.filter((_, i) => i !== index));
   };
 
-  const totalWeight = itemsList.reduce((sum, item) => sum + item.weightKg, 0);
-
-  // Factory absorption cost calculation
-  const totalCost = itemsList.reduce((sum, item) => {
+  const getItemFactoryCost = (item: DispatchItem): number => {
+    if (item.factoryCostAmount !== undefined) return item.factoryCostAmount;
     const prod = products.find(p => p.id === item.productId);
-    const cost = prod ? prod.costPerKg : 2600;
-    return sum + (item.weightKg * cost);
-  }, 0);
+    const cost = item.factoryCostPerKg ?? (prod ? prod.costPerKg : 2750);
+    return Math.round(item.weightKg * cost);
+  };
+
+  const getOrderFactoryCost = (order: DispatchOrder): number => {
+    if (order.totalFactoryCost !== undefined) return order.totalFactoryCost;
+    return order.items.reduce((sum, item) => sum + getItemFactoryCost(item), 0);
+  };
+
+  const totalWeight = itemsList.reduce((sum, item) => sum + item.weightKg, 0);
+  const totalCost = itemsList.reduce((sum, item) => sum + getItemFactoryCost(item), 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +128,8 @@ export const GiftsView: React.FC = () => {
       paymentType: 'CASH',
       items: itemsList,
       totalWeightKg: totalWeight,
-      totalAmount: 0, // 0 IQD
+      totalAmount: 0, // Always 0 IQD (Free on recipient)
+      totalFactoryCost: totalCost, // Tracked on Factory account
       status: 'COMPLETED',
       notes,
     });
@@ -112,15 +140,7 @@ export const GiftsView: React.FC = () => {
   // Only GIFT dispatches
   const giftsList = dispatches.filter(d => d.destinationType === 'GIFT');
   const totalGiftsKg = giftsList.reduce((sum, d) => sum + d.totalWeightKg, 0);
-
-  // Approximate factory cost
-  const totalFactoryCost = giftsList.reduce((sum, d) => {
-    return sum + d.items.reduce((iSum, item) => {
-      const prod = products.find(p => p.id === item.productId);
-      const cost = prod ? prod.costPerKg : 2600;
-      return iSum + (item.weightKg * cost);
-    }, 0);
-  }, 0);
+  const totalFactoryCost = giftsList.reduce((sum, d) => sum + getOrderFactoryCost(d), 0);
 
   return (
     <div className="space-y-6">
@@ -227,7 +247,8 @@ export const GiftsView: React.FC = () => {
                 <th className="p-4">ناوی بەخشەر / مەندوب</th>
                 <th className="p-4">بەرهەمەکان</th>
                 <th className="p-4">کۆی کێش (کگم)</th>
-                <th className="p-4">نرخی فرۆش</th>
+                <th className="p-4">تێچوو لەسەر کارگە</th>
+                <th className="p-4">لەسەر خەڵک / وەرگر</th>
                 <th className="p-4">تێبینی</th>
                 <th className="p-4 text-center">وەسڵ</th>
               </tr>
@@ -235,12 +256,14 @@ export const GiftsView: React.FC = () => {
             <tbody className="divide-y divide-black/[0.04] text-[#1D1D1F]">
               {giftsList.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-[#86868B]">
+                  <td colSpan={10} className="p-8 text-center text-[#86868B]">
                     هیچ وەسڵێکی دیاری تۆمار نەکراوە
                   </td>
                 </tr>
               ) : (
-                giftsList.map((d) => (
+                giftsList.map((d) => {
+                  const rowFactoryCost = getOrderFactoryCost(d);
+                  return (
                   <tr key={d.id} className="hover:bg-[#FBFBFD] transition-colors">
                     <td className="p-4 font-bold text-[#AF52DE]">
                       <span className="bg-[#AF52DE]/10 px-2.5 py-1 rounded-full text-[11px] font-mono">
@@ -275,9 +298,15 @@ export const GiftsView: React.FC = () => {
                       {d.totalWeightKg.toLocaleString()} کگم
                     </td>
 
+                    <td className="p-4">
+                      <span className="bg-[#FF9500]/12 text-[#B25000] px-2.5 py-1 rounded-full text-[11px] font-black tabular-nums">
+                        {rowFactoryCost.toLocaleString()} د.ع
+                      </span>
+                    </td>
+
                     <td className="p-4 font-bold text-[#34C759]">
                       <span className="bg-[#34C759]/10 text-[#248A3D] px-2.5 py-1 rounded-full text-[11px]">
-                        ٠ د.ع (دیاری بەلاش)
+                        ٠ د.ع (فری / بەلاش)
                       </span>
                     </td>
 
@@ -287,7 +316,10 @@ export const GiftsView: React.FC = () => {
 
                     <td className="p-4 text-center">
                       <button
-                        onClick={() => setSelectedReceiptForPrint(d)}
+                        onClick={() => {
+                          setShowFactoryCostOnPrint(false);
+                          setSelectedReceiptForPrint(d);
+                        }}
                         className="p-1.5 rounded-lg bg-[#F5F5F7] hover:bg-[#EAEAEA] text-[#515154] hover:text-[#AF52DE] transition-colors"
                         title="بینینی وەسڵ و پرینت"
                       >
@@ -295,7 +327,8 @@ export const GiftsView: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))
+                );
+                })
               )}
             </tbody>
           </table>
@@ -403,23 +436,28 @@ export const GiftsView: React.FC = () => {
               {/* Notice */}
               <div className="p-3 rounded-2xl bg-[#AF52DE]/10 border border-[#AF52DE]/20 text-[#AF52DE] font-semibold flex items-center gap-2">
                 <Gift className="w-4 h-4 shrink-0" />
-                <span>ئەم وەسڵە بە نرخی ٠ دینار دەردەچێت، بەڵام کێشی مریشکەکە لە کۆگای کارگە کەمدەبێتەوە.</span>
+                <span>
+                  لەسەر وەرگر (خەڵک) بە تەواوی فرییە (٠ د.ع)، بەڵام نرخی تێچووەکەی لەسەر حسابی کارگە و ڕاپۆرتی قازانج و زیان تۆمار دەکرێت.
+                </span>
               </div>
 
               {/* Line Items */}
               <div className="border border-black/[0.06] rounded-2xl p-4 bg-[#FBFBFD] space-y-3">
                 <div className="font-bold text-[#1D1D1F] flex items-center justify-between">
-                  <span>بەرهەمی دیاری</span>
+                  <span>بەرهەمی دیاری و دیاریکردنی تێچووی کارگە</span>
                   <span className="text-[11px] font-normal text-[#86868B]">
-                    هەر بەرهەمێک لەگەڵ کێشەکەی زیاد بکە
+                    نرخی تێچوو بە خۆکار لە کاڵاکان دێت و دەتوانیت بیگۆڕیت
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                   <div className="sm:col-span-2">
+                    <label className="block text-[10px] text-[#86868B] font-semibold mb-1">
+                      جۆری بەرهەم
+                    </label>
                     <select
                       value={selectedProductId}
-                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      onChange={(e) => handleProductChange(e.target.value)}
                       className="w-full bg-white border border-black/[0.06] rounded-xl px-3 py-2 text-[#1D1D1F] outline-none font-semibold"
                     >
                       {products.map((p) => (
@@ -431,6 +469,9 @@ export const GiftsView: React.FC = () => {
                   </div>
 
                   <div>
+                    <label className="block text-[10px] text-[#86868B] font-semibold mb-1">
+                      کێش (کگم) *
+                    </label>
                     <input
                       type="number"
                       step="0.1"
@@ -438,6 +479,23 @@ export const GiftsView: React.FC = () => {
                       value={itemWeight}
                       onChange={(e) => setItemWeight(e.target.value ? Number(e.target.value) : '')}
                       className="w-full bg-white border border-black/[0.06] rounded-xl px-3 py-2 text-[#1D1D1F] font-bold outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-[#B25000] font-semibold mb-1">
+                      تێچووی کیلۆ لەسەر کارگە (د.ع)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      placeholder="تێچووی کارگە"
+                      value={itemFactoryCostPerKg}
+                      onChange={(e) =>
+                        setItemFactoryCostPerKg(e.target.value !== '' ? Number(e.target.value) : '')
+                      }
+                      className="w-full bg-white border border-[#FF9500]/35 rounded-xl px-3 py-2 text-[#B25000] font-black outline-none"
                     />
                   </div>
                 </div>
@@ -458,7 +516,9 @@ export const GiftsView: React.FC = () => {
                         <tr>
                           <th className="p-2.5">بەرهەم</th>
                           <th className="p-2.5">کێش (کگم)</th>
-                          <th className="p-2.5">نرخی فرۆش</th>
+                          <th className="p-2.5">نرخی کیلۆ (کارگە)</th>
+                          <th className="p-2.5">تێچوو لەسەر کارگە</th>
+                          <th className="p-2.5">لەسەر خەڵک</th>
                           <th className="p-2.5 text-center">سڕینەوە</th>
                         </tr>
                       </thead>
@@ -467,7 +527,13 @@ export const GiftsView: React.FC = () => {
                           <tr key={idx}>
                             <td className="p-2.5 font-bold text-[#1D1D1F]">{item.productName}</td>
                             <td className="p-2.5 font-black text-[#AF52DE]">{item.weightKg} کگم</td>
-                            <td className="p-2.5 text-[#34C759] font-bold">٠ د.ع (دیاری)</td>
+                            <td className="p-2.5 font-semibold text-[#515154] tabular-nums">
+                              {(item.factoryCostPerKg || 0).toLocaleString()} د.ع
+                            </td>
+                            <td className="p-2.5 font-black text-[#B25000] tabular-nums">
+                              {getItemFactoryCost(item).toLocaleString()} د.ع
+                            </td>
+                            <td className="p-2.5 text-[#248A3D] font-bold">٠ د.ع (فری)</td>
                             <td className="p-2.5 text-center">
                               <button
                                 type="button"
@@ -486,14 +552,28 @@ export const GiftsView: React.FC = () => {
               </div>
 
               {/* Bottom Summary Bar */}
-              <div className="p-4 rounded-2xl bg-[#F5F5F7] border border-black/[0.05] flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#F5F5F7] border border-black/[0.05] flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-[#86868B] text-xs">کۆی کێشی دیاری: </span>
-                  <span className="text-base font-black text-[#AF52DE]">{totalWeight.toLocaleString()} کگم</span>
+                  <span className="text-[#86868B] text-xs block">کۆی کێشی دیاری:</span>
+                  <span className="text-base font-black text-[#AF52DE] tabular-nums">
+                    {totalWeight.toLocaleString()} کگم
+                  </span>
                 </div>
                 <div>
-                  <span className="text-[#86868B] text-xs">تێچووی سەر کارگە: </span>
-                  <span className="text-base font-black text-[#FF9500]">{totalCost.toLocaleString()} د.ع</span>
+                  <span className="text-[#B25000] text-xs font-semibold block">
+                    تێچووی گشتی لەسەر کارگە:
+                  </span>
+                  <span className="text-base font-black text-[#FF9500] tabular-nums">
+                    {totalCost.toLocaleString()} د.ع
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#248A3D] text-xs font-semibold block">
+                    لەسەر وەرگر (خەڵک):
+                  </span>
+                  <span className="text-base font-black text-[#248A3D]">
+                    ٠ د.ع (فری)
+                  </span>
                 </div>
               </div>
 
@@ -567,12 +647,24 @@ export const GiftsView: React.FC = () => {
               <div className="space-y-1.5 py-2">
                 <div className="font-bold text-[#515154] pb-1 border-b border-black/[0.05] flex justify-between">
                   <span>بەرهەم</span>
-                  <span>کێش (کگم)</span>
+                  <div className="flex items-center gap-4">
+                    <span>کێش (کگم)</span>
+                    {showFactoryCostOnPrint && (
+                      <span className="text-[#B25000]">تێچووی کارگە</span>
+                    )}
+                  </div>
                 </div>
-                {selectedReceiptForPrint.items.map((item: any, i: number) => (
+                {selectedReceiptForPrint.items.map((item, i) => (
                   <div key={i} className="flex justify-between text-[11px]">
                     <span>{item.productName}</span>
-                    <span className="font-bold">{item.weightKg} کگم</span>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold">{item.weightKg} کگم</span>
+                      {showFactoryCostOnPrint && (
+                        <span className="font-bold text-[#B25000] tabular-nums">
+                          {getItemFactoryCost(item).toLocaleString()} د.ع
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -581,13 +673,29 @@ export const GiftsView: React.FC = () => {
                 <span>کۆی گشتی کێش:</span>
                 <span className="text-[#AF52DE]">{selectedReceiptForPrint.totalWeightKg} کگم</span>
               </div>
+              {showFactoryCostOnPrint && (
+                <div className="flex justify-between text-sm font-black text-[#B25000]">
+                  <span>تێچووی لەسەر کارگە:</span>
+                  <span>{getOrderFactoryCost(selectedReceiptForPrint).toLocaleString()} د.ع</span>
+                </div>
+              )}
               <div className="flex justify-between text-base font-black text-[#34C759]">
-                <span>کۆی پارە:</span>
-                <span>٠ د.ع (دیاری بەلاش)</span>
+                <span>بڕی پارە لەسەر وەرگر (خەڵک):</span>
+                <span>٠ د.ع (فری / بەلاش)</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 no-print">
+              <label className="flex items-center gap-2 text-xs font-semibold text-[#515154] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showFactoryCostOnPrint}
+                  onChange={(e) => setShowFactoryCostOnPrint(e.target.checked)}
+                  className="rounded accent-[#FF9500]"
+                />
+                پیشاندانی تێچووی کارگە لەسەر وەسڵ (بۆ ژمێریاری)
+              </label>
+
               <button
                 onClick={() => window.print()}
                 className="px-5 py-2 bg-[#AF52DE] hover:bg-[#9E45CC] text-white rounded-full font-bold text-xs flex items-center gap-1.5 shadow-sm"

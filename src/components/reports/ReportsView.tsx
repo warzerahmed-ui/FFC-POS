@@ -18,7 +18,7 @@ import {
 import { ExpenseRecord } from '../../types';
 
 export const ReportsView: React.FC = () => {
-  const { intakes, dispatches, posSales, returns, expenses, branchExpenses, addExpense } = useApp();
+  const { intakes, dispatches, posSales, returns, expenses, branchExpenses, products, addExpense } = useApp();
 
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [expenseCategory, setExpenseCategory] = useState<ExpenseRecord['category']>('FUEL');
@@ -36,7 +36,17 @@ export const ReportsView: React.FC = () => {
 
   const totalGiftCost = dispatches
     .filter(d => d.destinationType === 'GIFT')
-    .reduce((sum, d) => sum + d.items.reduce((s, item) => s + item.weightKg * 2500, 0), 0);
+    .reduce((sum, d) => {
+      if (d.totalFactoryCost !== undefined) return sum + d.totalFactoryCost;
+      return (
+        sum +
+        d.items.reduce((s, item) => {
+          if (item.factoryCostAmount !== undefined) return s + item.factoryCostAmount;
+          const prod = products.find(p => p.id === item.productId);
+          return s + item.weightKg * (prod ? prod.costPerKg : 2750);
+        }, 0)
+      );
+    }, 0);
 
   const totalFactoryExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalStoreExpenses = branchExpenses.reduce((sum, e) => sum + e.amount, 0);

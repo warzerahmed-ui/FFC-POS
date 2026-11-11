@@ -82,6 +82,8 @@ export interface DispatchItem {
   weightKg: number;
   pricePerKg: number;
   totalAmount: number;
+  factoryCostPerKg?: number;
+  factoryCostAmount?: number;
 }
 
 export interface DispatchOrder {
@@ -98,6 +100,7 @@ export interface DispatchOrder {
   items: DispatchItem[];
   totalWeightKg: number;
   totalAmount: number;
+  totalFactoryCost?: number;
   status: 'DISPATCHED' | 'COMPLETED' | 'RETURN_INSPECTED';
   notes?: string;
 }

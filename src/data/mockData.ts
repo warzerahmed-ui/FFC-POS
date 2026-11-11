@@ -323,12 +323,22 @@ export const INITIAL_DISPATCHES: DispatchOrder[] = [
     paymentType: 'CASH',
     driverOrRepPhone: '0770 234 5678',
     items: [
-      { productId: 'prod-1', productName: 'مریشکی تەواو فرێش', barcode: '2100101005000', weightKg: 50.0, pricePerKg: 0, totalAmount: 0 },
+      {
+        productId: 'prod-1',
+        productName: 'مریشکی تەواو فرێش',
+        barcode: '2100101005000',
+        weightKg: 50.0,
+        pricePerKg: 0,
+        totalAmount: 0,
+        factoryCostPerKg: 2750,
+        factoryCostAmount: 137500,
+      },
     ],
     totalWeightKg: 50.0,
     totalAmount: 0,
+    totalFactoryCost: 137500,
     status: 'COMPLETED',
-    notes: 'دیاری و خێرخوازی بە ٠ دینار لەسەر تێچووی کۆگا',
+    notes: 'دیاری و خێرخوازی بە ٠ دینار لەسەر خەڵک و ١٣٧,٥٠٠ د.ع تێچوو لەسەر کارگە',
   },
 ];
 
